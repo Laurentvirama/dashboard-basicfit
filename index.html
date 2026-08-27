@@ -650,6 +650,41 @@ function getAgent(id){return DATA.team.find(t=>t.id==id)}
 function getAgentName(id){const a=getAgent(id);return a?a.name:"—"}
 function getAgentClub(id){const a=getAgent(id);return a?a.club:"—"}
 
+// ═══ WAZE + TEMPS DE TRAJET ═══
+function wazeUrl(lat,lng){return `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`}
+let _travelTimes={}; // {clubId: "12 min"}
+function refreshTravelTimes(){
+  const btn=document.getElementById("btnRefreshTravel");
+  if(btn){btn.textContent="⏳ Localisation...";btn.disabled=true}
+  if(!navigator.geolocation){
+    showToast("La géolocalisation n'est pas disponible sur ce navigateur");
+    if(btn){btn.textContent="🕐 Actualiser temps de trajet";btn.disabled=false}
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(async function(pos){
+    const myLat=pos.coords.latitude, myLng=pos.coords.longitude;
+    if(btn)btn.textContent="⏳ Calcul des trajets...";
+    await Promise.all(DATA.clubs.map(async function(c){
+      try{
+        const url=`https://router.project-osrm.org/route/v1/driving/${myLng},${myLat};${c.lng},${c.lat}?overview=false`;
+        const res=await fetch(url);
+        const data=await res.json();
+        if(data&&data.routes&&data.routes[0]){
+          const mins=Math.round(data.routes[0].duration/60);
+          _travelTimes[c.id]=mins+" min";
+          const el=document.getElementById("travelTime-"+c.id);
+          if(el)el.innerHTML="🚗 "+mins+" min de route";
+        }
+      }catch(e){console.log("Erreur trajet club "+c.id,e)}
+    }));
+    if(btn){btn.textContent="🕐 Actualiser temps de trajet";btn.disabled=false}
+    showToast("✓ Temps de trajet mis à jour");
+  },function(err){
+    showToast("⚠ Position non disponible — autorise la géolocalisation");
+    if(btn){btn.textContent="🕐 Actualiser temps de trajet";btn.disabled=false}
+  },{enableHighAccuracy:true,timeout:10000});
+}
+
 function gaugeCircle(percent,color,size=52){
   const r=20,circ=2*Math.PI*r,offset=circ-(percent/100)*circ;
   return `<div class="gauge-circle" style="width:${size}px;height:${size}px"><svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="#F0F0F3" stroke-width="5"/><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${color}" stroke-width="5" stroke-dasharray="${circ}" stroke-dashoffset="${offset}" stroke-linecap="round"/></svg><div class="gauge-text" style="color:${color}">${percent}%</div></div>`;
@@ -976,8 +1011,8 @@ function renderContent(){
       {l:"En arrêt",v:agentsEnArret().length,c:"#DC2626"},
       {l:"Tickets actifs",v:DATA.tickets.filter(t=>t.status!=="termine").length,c:"#8B5CF6"},
     ].map(x=>`<div class="stat-card"><div class="stat-label">${x.l}</div><div class="stat-value" style="color:${x.c}">${x.v}</div></div>`).join("")}</div>
-    <div class="panel"><div class="panel-header"><span class="panel-title">État des clubs</span></div>
-    ${DATA.clubs.map(c=>{const b=clubBadge(c.status);const ctk=DATA.tickets.filter(t=>t.club===c.name&&t.status!=="termine").length;const ca=DATA.arrets.filter(a=>getAgentClub(a.agentId)===c.name&&arretActif(a)).length;return `<div class="panel-row"><div><div class="row-name">${c.name} <span class="club-code">${c.code}</span></div><div class="row-sub">${c.fullName}${c.isHome?" 🏠":""} · ${c.agents} agents · ⭐ ${c.googleRating||"?"}/5 (${c.googleCount||0} avis)${ca>0?` · ${ca} en arrêt`:''} · ${ctk} ticket${ctk>1?'s':''}</div></div><div class="row-right"><span class="badge" style="background:${b.bg};color:${b.text}">${b.label}</span><button class="btn-secondary" onclick="editClub(${c.id})">Modifier</button></div></div>`}).join("")}</div>`;
+    <div class="panel"><div class="panel-header"><span class="panel-title">État des clubs</span><button class="btn-secondary" onclick="refreshTravelTimes()" id="btnRefreshTravel">🕐 Actualiser temps de trajet</button></div>
+    ${DATA.clubs.map(c=>{const b=clubBadge(c.status);const ctk=DATA.tickets.filter(t=>t.club===c.name&&t.status!=="termine").length;const ca=DATA.arrets.filter(a=>getAgentClub(a.agentId)===c.name&&arretActif(a)).length;return `<div class="panel-row"><div><div class="row-name">${c.name} <span class="club-code">${c.code}</span></div><div class="row-sub">${c.fullName}${c.isHome?" 🏠":""} · ${c.agents} agents · ⭐ ${c.googleRating||"?"}/5 (${c.googleCount||0} avis)${ca>0?` · ${ca} en arrêt`:''} · ${ctk} ticket${ctk>1?'s':''}</div><div class="row-sub" id="travelTime-${c.id}" style="margin-top:3px;font-weight:600;color:#0D9488">${_travelTimes[c.id]?('🚗 '+_travelTimes[c.id]+' de route'):''}</div></div><div class="row-right"><span class="badge" style="background:${b.bg};color:${b.text}">${b.label}</span><button class="btn-secondary" onclick="window.open(wazeUrl(${c.lat},${c.lng}),'_blank')" title="Ouvrir dans Waze">🚗 Waze</button><button class="btn-secondary" onclick="editClub(${c.id})">Modifier</button></div></div>`}).join("")}</div>`;
   }
 
   else if(activeTab==="team"){
