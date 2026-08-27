@@ -6,6 +6,7 @@
 <title>Dashboard Cluster Manager - Basic-Fit</title>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
+:root{--c-primary:#0D9488;--c-primary-dark:#0B7A6E;--c-accent:#EA7317;--c-danger:#DC2626;--c-success:#16A34A;--c-warning:#D97706;--c-purple:#7C4FE0;--c-pink:#DB4C82;--c-info:#2563EB;--shadow-btn:0 1px 2px rgba(15,23,41,.12);--radius-btn:8px}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Instrument Sans','DM Sans',system-ui,sans-serif;background:#F8F9FB;color:#1A1D23;min-height:100vh}
 .header{background:linear-gradient(135deg,#0A1628 0%,#0C2E3D 50%,#0D3B3F 100%);padding:20px 28px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
@@ -69,10 +70,10 @@ body{font-family:'Instrument Sans','DM Sans',system-ui,sans-serif;background:#F8
 .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
 .dot-sm{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;flex-shrink:0;text-shadow:0 1px 2px rgba(0,0,0,.2)}
-.btn-add{padding:8px 18px;border-radius:8px;border:none;background:linear-gradient(135deg,#FE7F00,#FF9F40);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(254,127,0,.3);transition:transform .15s,box-shadow .15s}
+.btn-add{padding:8px 18px;border-radius:var(--radius-btn);border:none;background:var(--c-accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;box-shadow:var(--shadow-btn);transition:transform .15s,box-shadow .15s}
 .btn-add:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(254,127,0,.4)}
-.btn-maladie{padding:8px 18px;border-radius:8px;border:none;background:linear-gradient(135deg,#8B5CF6,#A78BFA);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(139,92,246,.3)}
-.btn-at{padding:8px 18px;border-radius:8px;border:none;background:linear-gradient(135deg,#EC4899,#F472B6);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(236,72,153,.3)}
+.btn-maladie{padding:8px 18px;border-radius:var(--radius-btn);border:none;background:var(--c-purple);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;box-shadow:var(--shadow-btn)}
+.btn-at{padding:8px 18px;border-radius:var(--radius-btn);border:none;background:var(--c-pink);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;box-shadow:var(--shadow-btn)}
 .btn-secondary{padding:6px 14px;border-radius:6px;border:1px solid #D1D5DB;background:#fff;color:#6B7280;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s}
 .btn-secondary:hover{border-color:#FE7F00;color:#FE7F00}
 .btn-danger{padding:4px 10px;border-radius:6px;border:1px solid #FCA5A5;background:#FEF2F2;color:#DC2626;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit}
@@ -94,7 +95,7 @@ body{font-family:'Instrument Sans','DM Sans',system-ui,sans-serif;background:#F8
 .form-textarea{resize:vertical;min-height:70px}
 .form-actions{display:flex;gap:10px;margin-top:20px;justify-content:flex-end}
 .form-cancel{padding:10px 20px;border-radius:8px;border:1px solid #D1D5DB;background:#fff;color:#6B7280;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit}
-.form-submit{padding:10px 24px;border-radius:8px;border:none;background:linear-gradient(135deg,#FE7F00,#FF9F40);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(254,127,0,.3)}
+.form-submit{padding:10px 24px;border-radius:var(--radius-btn);border:none;background:var(--c-accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;box-shadow:var(--shadow-btn)}
 .color-picker-row{display:flex;gap:6px;flex-wrap:wrap}
 .color-swatch{width:32px;height:32px;border-radius:8px;cursor:pointer;border:3px solid transparent;transition:all .15s}
 .color-swatch:hover{transform:scale(1.1)}
@@ -241,7 +242,7 @@ body{font-family:'Instrument Sans','DM Sans',system-ui,sans-serif;background:#F8
 .sheet-tab.active{background:#FE7F00;color:#fff;border-color:#FE7F00}
 /* ═══ EXPORT EXCEL ═══ */
 .export-section{background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;padding:16px;margin-bottom:14px}
-.export-btn{padding:10px 20px;border-radius:8px;border:none;background:linear-gradient(135deg,#16A34A,#22C55E);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(22,163,74,.3);transition:.15s;display:inline-flex;align-items:center;gap:6px}
+.export-btn{padding:10px 20px;border-radius:var(--radius-btn);border:none;background:var(--c-success);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;box-shadow:var(--shadow-btn);transition:.15s;display:inline-flex;align-items:center;gap:6px}
 .export-btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(22,163,74,.4)}
 /* ═══ AVIS GOOGLE ═══ */
 .avis-card{padding:16px 20px;border-bottom:1px solid #F0F0F3;transition:.15s}
@@ -285,10 +286,10 @@ body{font-family:'Instrument Sans','DM Sans',system-ui,sans-serif;background:#F8
 .popup-alert-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s}
 .popup-alert{background:#fff;border-radius:16px;width:420px;max-width:92vw;box-shadow:0 25px 60px rgba(0,0,0,.35);overflow:hidden;animation:slideUp .3s ease}
 .popup-alert-header{padding:20px 24px;color:#fff;display:flex;align-items:center;gap:12px}
-.popup-alert-header.urgente{background:linear-gradient(135deg,#DC2626,#991B1B)}
-.popup-alert-header.haute{background:linear-gradient(135deg,#EA580C,#C2410C)}
-.popup-alert-header.normale{background:linear-gradient(135deg,#FE7F00,#EA580C)}
-.popup-alert-header.info{background:linear-gradient(135deg,#3B82F6,#1D4ED8)}
+.popup-alert-header.urgente{background:var(--c-danger)}
+.popup-alert-header.haute{background:#C2410C}
+.popup-alert-header.normale{background:var(--c-accent)}
+.popup-alert-header.info{background:var(--c-info)}
 .popup-alert-icon{font-size:32px}
 .popup-alert-title{font-size:18px;font-weight:700}
 .popup-alert-body{padding:20px 24px}
@@ -333,6 +334,7 @@ try{
     <div class="header-date" id="headerDate"></div>
     <div class="header-actions">
       <div class="save-indicator" id="saveIndicator" style="background:rgba(22,163,74,.12);color:#16A34A">✓ Sauvegardé</div>
+      <button class="btn-export" onclick="requestNotifPermission()" id="notifPermBtn" title="Activer les notifications">🔕</button>
       <button class="btn-export" onclick="toggleNotifPanel()" id="notifBtn">🔔 <span id="notifBadgeHeader"></span></button>
       <button class="btn-export" onclick="activeTab='imports';render()" title="Importer un fichier Excel">📥 Import</button>
       <button class="btn-export" onclick="exportTicketsExcel()" title="Export Excel tickets">📊 Excel Tickets</button>
@@ -511,7 +513,31 @@ function addNotification(title,body,type){
   if(DATA.notifications.length>100)DATA.notifications=DATA.notifications.slice(0,100);
   saveData();renderTabs();
   showToast(title);
+  fireBrowserNotification(title,body);
 }
+
+// ═══ NOTIFICATIONS NAVIGATEUR (alertes même app en arrière-plan) ═══
+function fireBrowserNotification(title,body){
+  if(!("Notification" in window))return;
+  if(Notification.permission!=="granted")return;
+  try{
+    if(navigator.serviceWorker&&navigator.serviceWorker.ready){
+      navigator.serviceWorker.ready.then(function(reg){
+        reg.showNotification(title,{body:body||"",icon:"icon-192.png",badge:"icon-192.png",tag:"bf-dash-"+Date.now()});
+      });
+    }else{
+      new Notification(title,{body:body||"",icon:"icon-192.png"});
+    }
+  }catch(e){console.log("Notification error:",e)}
+}
+window.requestNotifPermission=function(){
+  if(!("Notification" in window)){showToast("⚠ Notifications non supportées sur ce navigateur");return}
+  Notification.requestPermission().then(function(perm){
+    if(perm==="granted"){showToast("✓ Notifications activées");fireBrowserNotification("🔔 Notifications activées","Tu recevras désormais les alertes importantes.")}
+    else{showToast("Notifications refusées")}
+    render();
+  });
+};
 function markAllNotifRead(){if(!DATA.notifications)return;DATA.notifications.forEach(n=>n.read=true);saveData();renderTabs();renderNotifPanel()}
 function deleteNotif(id){DATA.notifications=DATA.notifications.filter(n=>n.id!==id);saveData();renderTabs();renderNotifPanel()}
 function toggleNotifPanel(){
@@ -596,7 +622,7 @@ function hydrateData(){
 let DATA=loadDataSync()||JSON.parse(JSON.stringify(DEFAULT_DATA));
 hydrateData();
 
-let activeTab="dashboard";
+let activeTab="today";
 let selectedClub="all";
 let teamSort="salle";
 
@@ -693,6 +719,7 @@ function gaugeCircle(percent,color,size=52){
 document.getElementById("headerDate").textContent=new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
 
 const TABS=[
+  {id:"today",label:"Aujourd'hui",icon:"🌅"},
   {id:"dashboard",label:"Tableau de bord",icon:"📊"},
   {id:"moduleTickets",label:"Module Tickets",icon:"🎫"},
   {id:"heures",label:"Heures de travail",icon:"🕐"},
@@ -740,10 +767,14 @@ function renderTabs(){
   // Update header notif badge
   const hb=document.getElementById("notifBadgeHeader");
   if(hb)hb.textContent=unreadNotifs>0?`(${unreadNotifs})`:"";
+  const permBtn=document.getElementById("notifPermBtn");
+  if(permBtn&&("Notification" in window)){
+    permBtn.textContent=Notification.permission==="granted"?"🔔 Activées":"🔕 Activer alertes";
+  }
 }
 function renderFilters(){
   const c=document.getElementById("filtersContainer");
-  if(activeTab==="config"){c.innerHTML="";return}
+  if(activeTab==="config"||activeTab==="today"){c.innerHTML="";return}
   const all=[{n:"all",l:"Tous les clubs",code:""},...DATA.clubs.map(cl=>({n:cl.name,l:cl.name,code:cl.code}))];
   c.innerHTML=all.map(x=>`<button class="filter-btn ${selectedClub===x.n?'active':''}" data-c="${x.n}">${x.l}${x.code?`<span class="club-code">${x.code}</span>`:''}</button>`).join("");
   c.querySelectorAll(".filter-btn").forEach(b=>b.onclick=()=>{selectedClub=b.dataset.c;render()});
@@ -775,7 +806,8 @@ function renderAgentRow(t){
   else if(realStatus==="AT"){statusColor="#EC4899";statusLabel="⚠ AT"}
   else{statusColor=statColor(realStatus);statusLabel=statLabel(realStatus)}
   const arretInfo=arret?` <span style="font-size:10px;color:#9CA3AF">jusqu'au ${fmtDateShort(arret.dateFin)||'?'}</span>`:'';
-  return `<div class="panel-row"><div class="row-left"><span class="rank-badge">#${t.rank}</span><div class="avatar" style="background:${ch}">${ini(t.name)}</div><div><div class="row-name" style="display:flex;align-items:center;gap:6px">${t.name} <div class="color-tag" style="background:${ch}"></div></div><div class="row-sub">${t.club} · ${t.salle} · ${t.role}${t.note?' · '+t.note:''}</div></div></div><div class="row-right"><div class="agent-status-dot" style="background:${statusColor}"></div><span style="font-size:12px;font-weight:500;color:${statusColor};min-width:90px">${statusLabel}${arretInfo}</span><button class="btn-move" onclick="moveRank(${t.id},-1)">▲</button><button class="btn-move" onclick="moveRank(${t.id},1)">▼</button><button class="btn-secondary" onclick="editAgent(${t.id})">Modifier</button><button class="btn-danger" onclick="deleteTeam(${t.id})">✕</button></div></div>`;
+  const waBtn=t.tel?`<a href="https://wa.me/33${t.tel.replace(/[^0-9]/g,"").replace(/^0/,"")}" target="_blank" class="btn-secondary" style="text-decoration:none" title="WhatsApp">💬</a>`:'';
+  return `<div class="panel-row"><div class="row-left"><span class="rank-badge">#${t.rank}</span><div class="avatar" style="background:${ch}">${ini(t.name)}</div><div><div class="row-name" style="display:flex;align-items:center;gap:6px">${t.name} <div class="color-tag" style="background:${ch}"></div></div><div class="row-sub">${t.club} · ${t.salle} · ${t.role}${t.note?' · '+t.note:''}</div></div></div><div class="row-right"><div class="agent-status-dot" style="background:${statusColor}"></div><span style="font-size:12px;font-weight:500;color:${statusColor};min-width:90px">${statusLabel}${arretInfo}</span>${waBtn}<button class="btn-move" onclick="moveRank(${t.id},-1)">▲</button><button class="btn-move" onclick="moveRank(${t.id},1)">▼</button><button class="btn-secondary" onclick="editAgent(${t.id})">Modifier</button><button class="btn-danger" onclick="deleteTeam(${t.id})">✕</button></div></div>`;
 }
 
 // ══════════════════════════════════════════
@@ -903,7 +935,7 @@ function renderModule(id, fTeam, fTk) {
   }
   if(id==="agentsSalle"){
     return `<div class="panel draggable" ${dragAttrs}><div class="panel-drag-handle">⋮⋮</div><div class="panel-header"><span class="panel-title">Agents par salle</span></div><div style="padding:16px 20px">
-      ${Object.entries(agentsBySalle).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).map(([s,v])=>`<div class="chart-bar-row"><div class="chart-bar-label">${s}</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:${pct(v,maxSalle)}%;background:linear-gradient(135deg,#FE7F00,#FF9F40)">${v}</div></div></div>`).join("")}
+      ${Object.entries(agentsBySalle).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).map(([s,v])=>`<div class="chart-bar-row"><div class="chart-bar-label">${s}</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:${pct(v,maxSalle)}%;background:var(--c-accent)">${v}</div></div></div>`).join("")}
     </div></div>`;
   }
   if(id==="volumeTickets"){
@@ -963,7 +995,59 @@ function renderContent(){
   const SL={ouvert:"Ouvert",encours:"En cours",planifie:"Planifié",termine:"Terminé",attente:"En attente"};
   const fTeam=fil(DATA.team),fInc=fil(DATA.incidents),fVis=fil(DATA.visits),fTk=fil(DATA.tickets);
 
-  if(activeTab==="dashboard"){
+  if(activeTab==="today"){
+    const todayStr=new Date().toISOString().split("T")[0];
+    const arretsActifs=DATA.arrets.filter(arretActif);
+    const remindersToday=(DATA.reminders||[]).filter(r=>!r.done&&r.datetime&&r.datetime.split("T")[0]<=todayStr).sort((a,b)=>new Date(a.datetime)-new Date(b.datetime));
+    const urgentTickets=DATA.tickets.filter(t=>t.status!=="termine"&&(t.priority==="urgente"||t.priority==="haute"));
+    const oldTk=DATA.tickets.filter(t=>t.status!=="termine"&&ticketAge(t.dateCreated)>=30).sort((a,b)=>ticketAge(b.dateCreated)-ticketAge(a.dateCreated));
+    const visitsToday=(DATA.visits||[]).filter(v=>v.date&&v.date.split("T")[0]===todayStr&&!v.done);
+    const calToday=(DATA.calEvents||[]).filter(e=>e.date===todayStr);
+    const avisARafraichir=DATA.clubs.filter(c=>needsAvisRefresh(c.name));
+    const agentsPresentTotal=DATA.team.filter(t=>getAgentStatus(t.id)==="présent").length;
+    const now=new Date();
+    const heureStr=now.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
+    const jourStr=now.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"});
+
+    const section=(icon,title,count,color,html)=>`<div class="panel" style="border-left:4px solid ${color};margin-bottom:14px"><div class="panel-header"><span class="panel-title">${icon} ${title}</span>${count!==null?`<span class="badge" style="background:${color}22;color:${color}">${count}</span>`:''}</div>${html}</div>`;
+
+    let html=`<div style="background:var(--c-primary-dark);border-radius:14px;padding:20px 24px;margin-bottom:18px;color:#fff"><div style="font-size:13px;opacity:.7;text-transform:capitalize">${jourStr} · ${heureStr}</div><div style="font-size:22px;font-weight:700;margin-top:4px">Bonjour Laurent 👋</div><div style="font-size:13px;opacity:.8;margin-top:4px">${agentsPresentTotal}/${DATA.team.length} agents présents · ${urgentTickets.length} ticket${urgentTickets.length>1?'s':''} prioritaire${urgentTickets.length>1?'s':''} · ${arretsActifs.length} en arrêt</div></div>`;
+
+    if(remindersToday.length>0){
+      html+=section("⏰","Rappels du jour",remindersToday.length,"#DC2626",remindersToday.map(r=>{const overdue=new Date(r.datetime)<now;return `<div class="panel-row"><div class="row-left"><div class="dot" style="background:${overdue?'#DC2626':'#F59E0B'}"></div><div><div class="row-name">${r.title}</div><div class="row-sub">${fmtDate(r.datetime)}${r.club!=="Tous"?' · '+r.club:''}</div></div></div><button class="btn-success" onclick="toggleReminderDone(${r.id})">✓ Fait</button></div>`}).join(""));
+    } else {
+      html+=section("⏰","Rappels du jour",0,"#16A34A",`<div class="empty-state" style="padding:16px;color:#16A34A">✓ Aucun rappel en attente</div>`);
+    }
+
+    if(urgentTickets.length>0){
+      html+=section("🎫","Tickets prioritaires",urgentTickets.length,"#EA580C",urgentTickets.slice(0,6).map(t=>`<div class="panel-row"><div class="row-left"><div><div class="row-name">${t.title}</div><div class="row-sub">${t.club} · ${t.salle||'—'}</div></div></div><span class="badge-sm prio-${t.priority}">${t.priority}</span></div>`).join(""));
+    }
+
+    if(arretsActifs.length>0){
+      html+=section("🏥","Agents en arrêt",arretsActifs.length,"#8B5CF6",arretsActifs.map(a=>`<div class="panel-row"><div class="row-left"><div><div class="row-name">${getAgentName(a.agentId)} ${a.type==="maladie"?'🏥':'⚠'}</div><div class="row-sub">${getAgentClub(a.agentId)}${a.dateFin?' · jusqu\'au '+fmtDateShort(a.dateFin):''}</div></div></div></div>`).join(""));
+    }
+
+    if(visitsToday.length>0||calToday.length>0){
+      const items=[...visitsToday.map(v=>`<div class="panel-row"><div class="row-left"><div class="dot" style="background:#FE7F00"></div><div><div class="row-name">Visite · ${v.club}</div><div class="row-sub">${v.type}${v.heureArrivee?' · '+v.heureArrivee:''}</div></div></div></div>`),...calToday.map(e=>`<div class="panel-row"><div class="row-left"><div class="dot" style="background:#3B82F6"></div><div><div class="row-name">${e.title||e.type||'Événement'}</div><div class="row-sub">${e.club||''}</div></div></div></div>`)].join("");
+      html+=section("📆","Programme du jour",visitsToday.length+calToday.length,"#3B82F6",items);
+    }
+
+    if(oldTk.length>0){
+      html+=section("🔴","Tickets anciens à relancer",oldTk.length,"#DC2626",oldTk.slice(0,5).map(t=>`<div class="panel-row"><div class="row-left"><div><div class="row-name">${t.title}</div><div class="row-sub">${t.club} · ${ticketAgeLabel(ticketAge(t.dateCreated))}</div></div></div></div>`).join("")+(oldTk.length>5?`<div style="padding:10px 20px"><button class="btn-secondary" onclick="activeTab='followups';render()">Voir les ${oldTk.length} relances</button></div>`:''));
+    }
+
+    if(avisARafraichir.length>0){
+      html+=section("⭐","Avis Google à vérifier",avisARafraichir.length,"#F59E0B",`<div style="padding:12px 20px;font-size:13px;color:#6B7280">${avisARafraichir.map(c=>c.name).join(", ")}</div>`);
+    }
+
+    if(remindersToday.length===0&&urgentTickets.length===0&&arretsActifs.length===0&&visitsToday.length===0&&calToday.length===0&&oldTk.length===0){
+      html+=`<div class="panel" style="padding:40px;text-align:center;color:#16A34A"><div style="font-size:36px;margin-bottom:10px">✓</div><div style="font-weight:600">Rien d'urgent aujourd'hui</div></div>`;
+    }
+
+    area.innerHTML=html;
+  }
+
+  else if(activeTab==="dashboard"){
     const arretsActifs=DATA.arrets.filter(a=>{if(selectedClub!=="all"&&getAgentClub(a.agentId)!==selectedClub)return false;return arretActif(a)});
     let banner="";
     if(arretsActifs.length>0){
@@ -2225,10 +2309,10 @@ window.resetAllData=function(){if(confirm("Réinitialiser TOUTES les données ? 
 window.editClub=function(id){const c=DATA.clubs.find(x=>x.id===id);showModal(`<div class="form-title">Modifier ${c.name}</div><div class="form-group"><label class="form-label">Nom</label><input class="form-input" id="fCN" value="${c.name}"></div><div class="form-group"><label class="form-label">Code club</label><input class="form-input" id="fCC" value="${c.code}"></div><div class="form-group"><label class="form-label">Adresse</label><input class="form-input" id="fCF" value="${c.fullName||''}"></div><div class="form-group"><label class="form-label">Agents</label><input class="form-input" type="number" id="fCA" value="${c.agents}"></div><div class="form-group"><label class="form-label">Statut</label><select class="form-select" id="fCS"><option value="ok" ${c.status==='ok'?'selected':''}>Opérationnel</option><option value="alert" ${c.status==='alert'?'selected':''}>Attention</option><option value="travaux" ${c.status==='travaux'?'selected':''}>Travaux</option></select></div><div class="form-actions"><button class="form-cancel" onclick="closeModal()">Annuler</button><button class="form-submit" onclick="saveClub(${id})">Enregistrer</button></div>`)};
 window.saveClub=function(id){const c=DATA.clubs.find(x=>x.id===id);c.name=document.getElementById("fCN").value;c.code=document.getElementById("fCC").value;c.fullName=document.getElementById("fCF").value;c.agents=parseInt(document.getElementById("fCA").value)||0;c.status=document.getElementById("fCS").value;saveData();closeModal();render()};
 
-window.addAgentForm=function(){_selectedColor="blue";showModal(`<div class="form-title">Nouvel agent</div><div class="form-group"><label class="form-label">Nom</label><input class="form-input" id="fAN"></div><div class="form-group"><label class="form-label">Club</label><select class="form-select" id="fAC">${clubOpts()}</select></div><div class="form-group"><label class="form-label">Salle</label><select class="form-select" id="fAS">${salleOpts()}</select></div><div class="form-group"><label class="form-label">Poste / Contrat</label><input class="form-input" id="fAR" value="Temps plein 35h"></div><div class="form-group"><label class="form-label">Statut</label><select class="form-select" id="fAST">${statutOpts("présent")}</select></div><div class="form-group"><label class="form-label">Rang</label><input class="form-input" type="number" id="fARK" value="1" min="1"></div><div class="form-group"><label class="form-label">Couleur</label>${colorSwatches("blue")}</div><div class="form-group"><label class="form-label">Note</label><input class="form-input" id="fANT"></div><div class="form-actions"><button class="form-cancel" onclick="closeModal()">Annuler</button><button class="form-submit" onclick="saveAgent()">Ajouter</button></div>`)};
-window.saveAgent=function(){DATA.team.push({id:nextId(DATA.team),name:document.getElementById("fAN").value,club:document.getElementById("fAC").value,salle:document.getElementById("fAS").value,role:document.getElementById("fAR").value||"Agent",status:document.getElementById("fAST").value,rank:parseInt(document.getElementById("fARK").value)||99,color:_selectedColor,note:document.getElementById("fANT").value});saveData();closeModal();render()};
-window.editAgent=function(id){const t=DATA.team.find(x=>x.id===id);_selectedColor=t.color;showModal(`<div class="form-title">Modifier ${t.name}</div><div class="form-group"><label class="form-label">Nom</label><input class="form-input" id="fAN" value="${t.name}"></div><div class="form-group"><label class="form-label">Club</label><select class="form-select" id="fAC">${clubOpts(t.club)}</select></div><div class="form-group"><label class="form-label">Salle</label><select class="form-select" id="fAS">${salleOpts(t.salle)}</select></div><div class="form-group"><label class="form-label">Poste</label><input class="form-input" id="fAR" value="${t.role}"></div><div class="form-group"><label class="form-label">Statut</label><select class="form-select" id="fAST">${statutOpts(t.status)}</select></div><div class="form-group"><label class="form-label">Rang</label><input class="form-input" type="number" id="fARK" value="${t.rank}"></div><div class="form-group"><label class="form-label">Couleur</label>${colorSwatches(t.color)}</div><div class="form-group"><label class="form-label">Note</label><input class="form-input" id="fANT" value="${t.note||''}"></div><div style="font-size:12px;color:#9CA3AF;padding:10px;background:#FAFBFC;border-radius:6px;margin-bottom:14px">💡 Pour déclarer un arrêt maladie ou AT avec dates, utilise l'onglet <strong>Maladie & AT</strong>.</div><div class="form-actions"><button class="form-cancel" onclick="closeModal()">Annuler</button><button class="form-submit" onclick="updateAgent(${id})">Enregistrer</button></div>`)};
-window.updateAgent=function(id){const t=DATA.team.find(x=>x.id===id);t.name=document.getElementById("fAN").value;t.club=document.getElementById("fAC").value;t.salle=document.getElementById("fAS").value;t.role=document.getElementById("fAR").value;t.status=document.getElementById("fAST").value;t.rank=parseInt(document.getElementById("fARK").value)||99;t.color=_selectedColor;t.note=document.getElementById("fANT").value;saveData();closeModal();render()};
+window.addAgentForm=function(){_selectedColor="blue";showModal(`<div class="form-title">Nouvel agent</div><div class="form-group"><label class="form-label">Nom</label><input class="form-input" id="fAN"></div><div class="form-group"><label class="form-label">Téléphone (optionnel)</label><input class="form-input" id="fATEL" placeholder="06 12 34 56 78"></div><div class="form-group"><label class="form-label">Club</label><select class="form-select" id="fAC">${clubOpts()}</select></div><div class="form-group"><label class="form-label">Salle</label><select class="form-select" id="fAS">${salleOpts()}</select></div><div class="form-group"><label class="form-label">Poste / Contrat</label><input class="form-input" id="fAR" value="Temps plein 35h"></div><div class="form-group"><label class="form-label">Statut</label><select class="form-select" id="fAST">${statutOpts("présent")}</select></div><div class="form-group"><label class="form-label">Rang</label><input class="form-input" type="number" id="fARK" value="1" min="1"></div><div class="form-group"><label class="form-label">Couleur</label>${colorSwatches("blue")}</div><div class="form-group"><label class="form-label">Note</label><input class="form-input" id="fANT"></div><div class="form-actions"><button class="form-cancel" onclick="closeModal()">Annuler</button><button class="form-submit" onclick="saveAgent()">Ajouter</button></div>`)};
+window.saveAgent=function(){DATA.team.push({id:nextId(DATA.team),name:document.getElementById("fAN").value,tel:document.getElementById("fATEL").value,club:document.getElementById("fAC").value,salle:document.getElementById("fAS").value,role:document.getElementById("fAR").value||"Agent",status:document.getElementById("fAST").value,rank:parseInt(document.getElementById("fARK").value)||99,color:_selectedColor,note:document.getElementById("fANT").value});saveData();closeModal();render()};
+window.editAgent=function(id){const t=DATA.team.find(x=>x.id===id);_selectedColor=t.color;showModal(`<div class="form-title">Modifier ${t.name}</div><div class="form-group"><label class="form-label">Nom</label><input class="form-input" id="fAN" value="${t.name}"></div><div class="form-group"><label class="form-label">Téléphone (optionnel)</label><input class="form-input" id="fATEL" value="${t.tel||''}" placeholder="06 12 34 56 78"></div><div class="form-group"><label class="form-label">Club</label><select class="form-select" id="fAC">${clubOpts(t.club)}</select></div><div class="form-group"><label class="form-label">Salle</label><select class="form-select" id="fAS">${salleOpts(t.salle)}</select></div><div class="form-group"><label class="form-label">Poste</label><input class="form-input" id="fAR" value="${t.role}"></div><div class="form-group"><label class="form-label">Statut</label><select class="form-select" id="fAST">${statutOpts(t.status)}</select></div><div class="form-group"><label class="form-label">Rang</label><input class="form-input" type="number" id="fARK" value="${t.rank}"></div><div class="form-group"><label class="form-label">Couleur</label>${colorSwatches(t.color)}</div><div class="form-group"><label class="form-label">Note</label><input class="form-input" id="fANT" value="${t.note||''}"></div><div style="font-size:12px;color:#9CA3AF;padding:10px;background:#FAFBFC;border-radius:6px;margin-bottom:14px">💡 Pour déclarer un arrêt maladie ou AT avec dates, utilise l'onglet <strong>Maladie & AT</strong>.</div><div class="form-actions"><button class="form-cancel" onclick="closeModal()">Annuler</button><button class="form-submit" onclick="updateAgent(${id})">Enregistrer</button></div>`)};
+window.updateAgent=function(id){const t=DATA.team.find(x=>x.id===id);t.name=document.getElementById("fAN").value;t.tel=document.getElementById("fATEL").value;t.club=document.getElementById("fAC").value;t.salle=document.getElementById("fAS").value;t.role=document.getElementById("fAR").value;t.status=document.getElementById("fAST").value;t.rank=parseInt(document.getElementById("fARK").value)||99;t.color=_selectedColor;t.note=document.getElementById("fANT").value;saveData();closeModal();render()};
 window.deleteTeam=function(id){if(confirm("Supprimer ?")){DATA.team=DATA.team.filter(x=>x.id!==id);saveData();render()}};
 window.moveRank=function(id,dir){const t=DATA.team.find(x=>x.id===id);t.rank=Math.max(1,t.rank+dir);saveData();render()};
 
@@ -3184,6 +3268,20 @@ window.openGoogleMapsRoute=function(){
 };
 
 // ═══ WORKDAY FUNCTIONS — IMPORT AGENTS EXCEL ═══
+// Charge la bibliothèque de lecture Excel (SheetJS) une seule fois, à la demande
+let _xlsxLoaded=false;
+function loadXLSX(){
+  return new Promise(function(resolve){
+    if(_xlsxLoaded&&window.XLSX){resolve(true);return}
+    if(window.XLSX){_xlsxLoaded=true;resolve(true);return}
+    var script=document.createElement("script");
+    script.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+    script.onload=function(){_xlsxLoaded=true;resolve(true)};
+    script.onerror=function(){showToast("⚠ Impossible de charger le module Excel (vérifie ta connexion)");resolve(false)};
+    document.head.appendChild(script);
+  });
+}
+
 window.importWorkdayAgentsExcel=function(){
   var inp=document.createElement("input");inp.type="file";inp.accept=".xlsx,.xls,.csv";inp.style.display="none";
   inp.onchange=function(e){if(e.target.files[0])processWorkdayImport(e.target.files[0],"agents")};
