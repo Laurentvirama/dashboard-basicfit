@@ -296,6 +296,31 @@ body{font-family:'Instrument Sans','DM Sans',system-ui,sans-serif;background:#F8
 </style>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0A1628">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Dashboard BF">
+<link rel="apple-touch-icon" href="icon-192.png">
+<!-- Firebase SDK (compat, no build step needed) -->
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyAK9lHaA7vEO0Q-IyVA4kZLAiottRQ5ItM",
+  authDomain: "dashboard-basicfit.firebaseapp.com",
+  databaseURL: "https://dashboard-basicfit-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "dashboard-basicfit",
+  storageBucket: "dashboard-basicfit.firebasestorage.app",
+  messagingSenderId: "191052369797",
+  appId: "1:191052369797:web:c2158202e8f83dcabdfeec"
+};
+firebase.initializeApp(firebaseConfig);
+const firestoreDB = firebase.firestore();
+try{
+  firestoreDB.enablePersistence({synchronizeTabs:true}).catch(function(err){console.log("Persistence offline non activée:",err.code)});
+}catch(e){}
+</script>
 </head>
 <body>
 
@@ -398,29 +423,71 @@ const DEFAULT_DATA={
   avisLastFetch:{"Meaux Victoire":"2026-06-08","Lagny-sur-Marne":"2026-06-08","Serris Danube":"2026-06-08","Nanteuil-lès-Meaux":"2026-06-08","Chauconin-Neufmontiers":"2026-06-08"},
 };
 
-// ═══ PERSISTENT STORAGE ═══
+// ═══ PERSISTENT STORAGE — Firebase Firestore (sync temps réel entre appareils) ═══
 const STORAGE_KEY="bf_dash_s77_v1";
+const FS_DOC_REF=firestoreDB.collection("dashboards").doc(STORAGE_KEY);
+let _isRemoteWrite=false; // évite de re-déclencher une sauvegarde quand on reçoit nos propres écritures
+let _liveSyncStarted=false;
+
 function loadDataSync(){try{const s=localStorage.getItem(STORAGE_KEY);if(s)return JSON.parse(s)}catch(e){}return null}
+
 async function loadDataAsync(){
-  try{const r=await window.storage.get(STORAGE_KEY);if(r&&r.value)return JSON.parse(r.value)}catch(e){}
+  try{
+    const snap=await FS_DOC_REF.get();
+    if(snap.exists){
+      const remote=snap.data();
+      if(remote&&remote.payload)return JSON.parse(remote.payload);
+    }
+  }catch(e){console.log("Firestore load error:",e)}
   return loadDataSync();
 }
+
 let _saveTimer;
 function saveData(){
   try{localStorage.setItem(STORAGE_KEY,JSON.stringify(DATA))}catch(e){}
+  if(_isRemoteWrite){_isRemoteWrite=false;return} // ne pas ré-écrire ce qu'on vient de recevoir
   updateSaveIndicator("saving");
   clearTimeout(_saveTimer);
   _saveTimer=setTimeout(async()=>{
-    try{await window.storage.set(STORAGE_KEY,JSON.stringify(DATA));updateSaveIndicator("saved")}
-    catch(e){updateSaveIndicator("error")}
+    try{
+      await FS_DOC_REF.set({payload:JSON.stringify(DATA),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+      updateSaveIndicator("saved");
+    }catch(e){console.log("Firestore save error:",e);updateSaveIndicator("error")}
   },500);
 }
+
+// Écoute en temps réel : si une modif arrive d'un autre appareil (PC ↔ iPhone), on met à jour l'affichage automatiquement
+function startLiveSync(){
+  if(_liveSyncStarted)return;
+  _liveSyncStarted=true;
+  FS_DOC_REF.onSnapshot(function(snap){
+    if(!snap.exists)return;
+    if(snap.metadata.hasPendingWrites)return; // ignore l'écho de notre propre écriture locale
+    const remote=snap.data();
+    if(!remote||!remote.payload)return;
+    try{
+      const parsed=JSON.parse(remote.payload);
+      if(JSON.stringify(parsed)===JSON.stringify(DATA))return; // rien de nouveau
+      _isRemoteWrite=true;
+      DATA=parsed;
+      hydrateData();
+      try{localStorage.setItem(STORAGE_KEY,JSON.stringify(DATA))}catch(e){}
+      render();
+      updateSaveIndicator("saved");
+      showToast("🔄 Mis à jour depuis un autre appareil");
+    }catch(e){console.log("Live sync parse error:",e)}
+  },function(err){
+    console.log("Live sync error:",err);
+    updateSaveIndicator("error");
+  });
+}
+
 function updateSaveIndicator(s){
   const el=document.getElementById("saveIndicator");
   if(!el)return;
   if(s==="saving"){el.innerHTML="⏳ Sauvegarde...";el.style.background="rgba(245,158,11,.15)";el.style.color="#F59E0B"}
-  else if(s==="saved"){el.innerHTML="✓ Sauvegardé";el.style.background="rgba(22,163,74,.12)";el.style.color="#16A34A"}
-  else{el.innerHTML="⚠ Erreur";el.style.background="rgba(220,38,38,.12)";el.style.color="#DC2626"}
+  else if(s==="saved"){el.innerHTML="✓ Synchronisé";el.style.background="rgba(22,163,74,.12)";el.style.color="#16A34A"}
+  else{el.innerHTML="⚠ Hors ligne";el.style.background="rgba(220,38,38,.12)";el.style.color="#DC2626"}
 }
 
 // ═══ CHANGELOG ═══
@@ -496,34 +563,38 @@ function checkReminders(){
 // ═══ HOOK saveData into existing actions for changelog ═══
 const _origSaveData=saveData;
 
+function hydrateData(){
+  if(!DATA.arrets)DATA.arrets=[];
+  if(!DATA.modules)DATA.modules=JSON.parse(JSON.stringify(DEFAULT_MODULES));
+  if(!DATA.notifications)DATA.notifications=[];
+  if(!DATA.reminders)DATA.reminders=[];
+  if(!DATA.changelog)DATA.changelog=[];
+  if(!DATA.cvs)DATA.cvs=[];
+  if(!DATA.followups)DATA.followups=[];
+  if(!DATA.alertSettings)DATA.alertSettings={phone:"",smsEnabled:false,whatsappEnabled:false,emailAlerts:true};
+  if(!DATA.avisGoogle)DATA.avisGoogle=[];
+  if(!DATA.avisLastFetch)DATA.avisLastFetch={};
+  if(!DATA.importedFiles)DATA.importedFiles=[];
+  if(!DATA.importHistory)DATA.importHistory=[];
+  if(!DATA.heures)DATA.heures=[];
+  if(!DATA.heuresContrat)DATA.heuresContrat=12.5;
+  if(!DATA.calEvents)DATA.calEvents=[];
+  if(!DATA.calAlerts)DATA.calAlerts=[];
+  if(!DATA.workday)DATA.workday={employees:[],notes:[],lastSync:""};
+  if(!DATA.clubVisitLog)DATA.clubVisitLog=[];
+  if(!DATA.agentPlanning)DATA.agentPlanning=[];
+  if(!DATA.checklistLogs)DATA.checklistLogs=[];
+  if(!DATA.contactsInternes)DATA.contactsInternes=[{id:1,nom:"Florian GALLO",role:"Regional Manager",tel:"+33607316241",region:"BFFR03.36"},{id:2,nom:"Mathilde Heimst",role:"Ticketing SSD & CVC / Facility",tel:""},{id:3,nom:"Shanael Zaoui",role:"HRBP",tel:""},{id:4,nom:"Thomas Marechal",role:"FSD",tel:""},{id:5,nom:"Laura Joeckle",role:"Conformite & Formations",tel:""},{id:6,nom:"Pierre Fuoc",role:"Planning",tel:""},{id:7,nom:"Sanaa Hilmi",role:"Quality Assessment",tel:""},{id:8,nom:"Ana Castro",role:"Partner Manager",tel:""}];
+  if(!DATA.googleApiKey)DATA.googleApiKey="";
+  if(!DATA.lastGoogleAutoRefresh)DATA.lastGoogleAutoRefresh="";
+  if(!DATA.ticketExports)DATA.ticketExports=[];
+  if(!DATA.salles)DATA.salles=[...DEFAULT_SALLES];
+  DATA.team.forEach(t=>{if(!t.color)t.color="blue";if(!t.salle)t.salle="Non affecté";if(t.rank===undefined)t.rank=99;if(!t.note)t.note=""});
+  DATA.tickets.forEach(t=>{if(!t.ref)t.ref="";if(!t.salle)t.salle="Non affecté"});
+}
+
 let DATA=loadDataSync()||JSON.parse(JSON.stringify(DEFAULT_DATA));
-if(!DATA.arrets)DATA.arrets=[];
-if(!DATA.modules)DATA.modules=JSON.parse(JSON.stringify(DEFAULT_MODULES));
-if(!DATA.notifications)DATA.notifications=[];
-if(!DATA.reminders)DATA.reminders=[];
-if(!DATA.changelog)DATA.changelog=[];
-if(!DATA.cvs)DATA.cvs=[];
-if(!DATA.followups)DATA.followups=[];
-if(!DATA.alertSettings)DATA.alertSettings={phone:"",smsEnabled:false,whatsappEnabled:false,emailAlerts:true};
-if(!DATA.avisGoogle)DATA.avisGoogle=[];
-if(!DATA.avisLastFetch)DATA.avisLastFetch={};
-if(!DATA.importedFiles)DATA.importedFiles=[];
-if(!DATA.importHistory)DATA.importHistory=[];
-if(!DATA.heures)DATA.heures=[];
-if(!DATA.heuresContrat)DATA.heuresContrat=12.5;
-if(!DATA.calEvents)DATA.calEvents=[];
-if(!DATA.calAlerts)DATA.calAlerts=[];
-if(!DATA.workday)DATA.workday={employees:[],notes:[],lastSync:""};
-if(!DATA.clubVisitLog)DATA.clubVisitLog=[];
-if(!DATA.agentPlanning)DATA.agentPlanning=[];
-if(!DATA.checklistLogs)DATA.checklistLogs=[];
-if(!DATA.contactsInternes)DATA.contactsInternes=[{id:1,nom:"Florian GALLO",role:"Regional Manager",tel:"+33607316241",region:"BFFR03.36"},{id:2,nom:"Mathilde Heimst",role:"Ticketing SSD & CVC / Facility",tel:""},{id:3,nom:"Shanael Zaoui",role:"HRBP",tel:""},{id:4,nom:"Thomas Marechal",role:"FSD",tel:""},{id:5,nom:"Laura Joeckle",role:"Conformite & Formations",tel:""},{id:6,nom:"Pierre Fuoc",role:"Planning",tel:""},{id:7,nom:"Sanaa Hilmi",role:"Quality Assessment",tel:""},{id:8,nom:"Ana Castro",role:"Partner Manager",tel:""}];
-if(!DATA.googleApiKey)DATA.googleApiKey="";
-if(!DATA.lastGoogleAutoRefresh)DATA.lastGoogleAutoRefresh="";
-if(!DATA.ticketExports)DATA.ticketExports=[];
-DATA.team.forEach(t=>{if(!t.color)t.color="blue";if(!t.salle)t.salle="Non affecté";if(t.rank===undefined)t.rank=99;if(!t.note)t.note=""});
-if(!DATA.salles)DATA.salles=[...DEFAULT_SALLES];
-DATA.tickets.forEach(t=>{if(!t.ref)t.ref="";if(!t.salle)t.salle="Non affecté"});
+hydrateData();
 
 let activeTab="dashboard";
 let selectedClub="all";
@@ -3516,42 +3587,23 @@ render();
     const asyncData=await loadDataAsync();
     if(asyncData){
       DATA=asyncData;
-      if(!DATA.arrets)DATA.arrets=[];
-      if(!DATA.modules)DATA.modules=JSON.parse(JSON.stringify(DEFAULT_MODULES));
-      if(!DATA.notifications)DATA.notifications=[];
-      if(!DATA.reminders)DATA.reminders=[];
-      if(!DATA.changelog)DATA.changelog=[];
-      if(!DATA.cvs)DATA.cvs=[];
-      if(!DATA.followups)DATA.followups=[];
-      if(!DATA.alertSettings)DATA.alertSettings={phone:"",smsEnabled:false,whatsappEnabled:false,emailAlerts:true};
-      if(!DATA.avisGoogle)DATA.avisGoogle=[];
-      if(!DATA.avisLastFetch)DATA.avisLastFetch={};
-      if(!DATA.importedFiles)DATA.importedFiles=[];
-      if(!DATA.importHistory)DATA.importHistory=[];
-      if(!DATA.heures)DATA.heures=[];
-      if(!DATA.heuresContrat)DATA.heuresContrat=12.5;
-      if(!DATA.calEvents)DATA.calEvents=[];
-      if(!DATA.calAlerts)DATA.calAlerts=[];
-      if(!DATA.workday)DATA.workday={employees:[],notes:[],lastSync:""};
-if(!DATA.clubVisitLog)DATA.clubVisitLog=[];
-if(!DATA.agentPlanning)DATA.agentPlanning=[];
-if(!DATA.checklistLogs)DATA.checklistLogs=[];
-if(!DATA.contactsInternes)DATA.contactsInternes=[{id:1,nom:"Florian GALLO",role:"Regional Manager",tel:"+33607316241",region:"BFFR03.36"},{id:2,nom:"Mathilde Heimst",role:"Ticketing SSD & CVC / Facility",tel:""},{id:3,nom:"Shanael Zaoui",role:"HRBP",tel:""},{id:4,nom:"Thomas Marechal",role:"FSD",tel:""},{id:5,nom:"Laura Joeckle",role:"Conformite & Formations",tel:""},{id:6,nom:"Pierre Fuoc",role:"Planning",tel:""},{id:7,nom:"Sanaa Hilmi",role:"Quality Assessment",tel:""},{id:8,nom:"Ana Castro",role:"Partner Manager",tel:""}];
-if(!DATA.googleApiKey)DATA.googleApiKey="";
-if(!DATA.lastGoogleAutoRefresh)DATA.lastGoogleAutoRefresh="";
-      if(!DATA.salles)DATA.salles=[...DEFAULT_SALLES];
-      DATA.team.forEach(t=>{if(!t.color)t.color="blue";if(!t.salle)t.salle="Non affecté";if(t.rank===undefined)t.rank=99;if(!t.note)t.note=""});
-      DATA.tickets.forEach(t=>{if(!t.ref)t.ref="";if(!t.salle)t.salle="Non affecté"});
+      hydrateData();
       render();
       updateSaveIndicator("saved");
     }
-  }catch(e){console.log("Async load skipped:",e)}
+  }catch(e){console.log("Chargement Firestore ignoré:",e)}
+  // Démarre l'écoute en temps réel (synchro PC ↔ iPhone automatique)
+  startLiveSync();
   // Check reminders every 30s
   setInterval(checkReminders,30000);
   checkReminders();
   // Auto-fetch Google reviews on page load
   if(DATA.googleApiKey){
     setTimeout(function(){fetchAllGoogleReviews()},1500);
+  }
+  // Enregistre le Service Worker pour l'installation en app (PWA)
+  if("serviceWorker" in navigator){
+    navigator.serviceWorker.register("sw.js").catch(function(e){console.log("SW non enregistré:",e)});
   }
 })();
 
