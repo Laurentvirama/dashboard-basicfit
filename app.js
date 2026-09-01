@@ -1,0 +1,3493 @@
+const CLUB_COLORS=["#0D9488","#3B82F6","#8B5CF6","#EA580C","#16A34A"];
+const AGENT_COLORS=[
+  {id:"blue",hex:"#3B82F6",label:"Bleu"},{id:"green",hex:"#16A34A",label:"Vert"},{id:"orange",hex:"#F59E0B",label:"Orange"},
+  {id:"red",hex:"#DC2626",label:"Rouge"},{id:"purple",hex:"#8B5CF6",label:"Violet"},{id:"pink",hex:"#EC4899",label:"Rose"},
+  {id:"teal",hex:"#14B8A6",label:"Turquoise"},{id:"indigo",hex:"#6366F1",label:"Indigo"},{id:"amber",hex:"#D97706",label:"Ambre"},
+  {id:"slate",hex:"#64748B",label:"Gris"},{id:"emerald",hex:"#059669",label:"Émeraude"},{id:"rose",hex:"#F43F5E",label:"Framboise"},
+];
+const DEFAULT_SALLES=["Accueil","Musculation","Cardio","Cours collectifs","Vestiaires","Non affecté"];
+const STATUTS=[
+  {id:"présent",label:"Présent",color:"#16A34A"},
+  {id:"absent",label:"Absent",color:"#DC2626"},
+  {id:"congé",label:"Congé",color:"#F59E0B"},
+  {id:"formation",label:"Formation",color:"#3B82F6"},
+];
+function statColor(s){const x=STATUTS.find(a=>a.id===s);return x?x.color:"#9CA3AF"}
+function statLabel(s){const x=STATUTS.find(a=>a.id===s);return x?x.label:s}
+
+// DEFAULT modules order for dashboard
+const DEFAULT_MODULES=[
+  {id:"indicateurs",name:"📊 Indicateurs clés",visible:true},
+  {id:"topSalles",name:"🏆 Top salles par tickets",visible:true},
+  {id:"ticketsStatut",name:"Tickets par statut",visible:true},
+  {id:"agentsSalle",name:"Agents par salle",visible:true},
+  {id:"volumeTickets",name:"Volume tickets par salle",visible:true},
+  {id:"arrets",name:"🏥 Agents en arrêt (Maladie/AT)",visible:true},
+  {id:"tickets",name:"Tickets en cours",visible:true},
+  {id:"performance",name:"Performance par club",visible:true},
+];
+
+const DEFAULT_DATA={
+  clubs:[
+    {id:1,code:"BF-4197",name:"Meaux Victoire",fullName:"5 Av. de la Victoire, 77100 Meaux",agents:0,status:"alert",isHome:true,cleaning:{societe:"ARESS / Pronet",contact:"Myriam",tel:"0659621121"},priorite:"Croissance faible vs région. Attention expérience membre, avis Google et développement commercial.",placeId:"ChIJJSmaV3Ch6EcRJP1CpxkEzHU",googleRating:4.1,googleCount:411,horaires:"6h-22h30",phone:"+33 1 59 20 24 20",lat:48.9569,lng:2.9068,peakAM:"7h-9h",peakPM:"17h-20h"},
+    {id:2,code:"BF-4437",name:"Lagny-sur-Marne",fullName:"53 Rue Jacquard, 77400 Lagny-sur-Marne",agents:0,status:"ok",cleaning:{societe:"Starluck",contact:"Djamel",tel:"0774075349"},priorite:"",placeId:"ChIJl074x9kb5kcR50OoEwApIag",googleRating:4.0,googleCount:286,horaires:"24/24 7j/7",phone:"+33 1 59 20 24 20",lat:48.8726,lng:2.6835,peakAM:"7h-9h30",peakPM:"17h30-20h30"},
+    {id:3,code:"BF-7215",name:"Serris Danube",fullName:"16 Cr du Danube, 77700 Serris",agents:0,status:"ok",cleaning:{societe:"ISOR",contact:"P. Aman",tel:"0750563689"},priorite:"",placeId:"ChIJ3wmTf6gd5kcRcwGImG6-0RQ",googleRating:4.4,googleCount:154,horaires:"6h-22h30",phone:"+33 3 66 33 33 44",lat:48.8559,lng:2.7769,peakAM:"7h30-9h30",peakPM:"17h-19h30"},
+    {id:4,code:"BF-4486",name:"Nanteuil-lès-Meaux",fullName:"15 Av. de la Foulée, 77100 Nanteuil-lès-Meaux",agents:0,status:"alert",cleaning:{societe:"ISOR",contact:"P. Aman",tel:"0750563689"},priorite:"POINT ATTENTION MAJEUR — Perte de membres vs N-1. Identifier causes + plan action.",placeId:"ChIJqQhW6cWh6EcRaV6j8u87d-U",googleRating:4.1,googleCount:171,horaires:"6h-22h30",phone:"+33 1 59 20 24 20",lat:48.9375,lng:2.8810,peakAM:"6h30-8h30",peakPM:"17h30-20h"},
+    {id:5,code:"BF-7052",name:"Chauconin-Neufmontiers",fullName:"3 Av. Roland Moreno, 77124 Chauconin-Neufmontiers",agents:0,status:"alert",cleaning:{societe:"ARESS / Pronet",contact:"Myriam",tel:"0659621121"},priorite:"Equipe a former.",placeId:"ChIJC1W4quqh6EcRJVAj7HcFBRI",googleRating:4.6,googleCount:298,horaires:"6h-22h30",phone:"+33 1 59 20 24 20",lat:48.9580,lng:2.8603,peakAM:"7h-9h",peakPM:"17h-19h30"},
+  ],
+  salles:[...DEFAULT_SALLES],
+  modules:JSON.parse(JSON.stringify(DEFAULT_MODULES)),
+  arrets:[],
+  incidents:[],
+  visits:[],
+  team:[],
+  tickets:[],
+  avisGoogle:[
+    {id:1,club:"Meaux Victoire",note:5,auteur:"Membre",texte:"Amazing gym, big and clean",date:"2026-06-08",source:"Google"},
+    {id:2,club:"Meaux Victoire",note:5,auteur:"Membre",texte:"The reception person was very professional and helpful !",date:"2026-06-08",source:"Google"},
+    {id:3,club:"Meaux Victoire",note:5,auteur:"Membre",texte:"This is The best GYM",date:"2026-06-08",source:"Google"},
+    {id:4,club:"Lagny-sur-Marne",note:5,auteur:"Membre",texte:"Top 10",date:"2026-06-08",source:"Google"},
+    {id:5,club:"Lagny-sur-Marne",note:5,auteur:"Membre",texte:"They have 50kg dumbbells!!!!!!",date:"2026-06-08",source:"Google"},
+    {id:6,club:"Serris Danube",note:5,auteur:"Membre",texte:"So good",date:"2026-06-08",source:"Google"},
+    {id:7,club:"Serris Danube",note:5,auteur:"Membre",texte:"Super club",date:"2026-06-08",source:"Google"},
+    {id:8,club:"Nanteuil-lès-Meaux",note:5,auteur:"Membre",texte:"Very spacious and organised",date:"2026-06-08",source:"Google"},
+    {id:9,club:"Nanteuil-lès-Meaux",note:4,auteur:"Membre",texte:"Good equipments but closes at 10:30pm, would be great 24/7",date:"2026-06-08",source:"Google"},
+    {id:10,club:"Chauconin-Neufmontiers",note:5,auteur:"Membre",texte:"Amazing!",date:"2026-06-08",source:"Google"},
+    {id:11,club:"Chauconin-Neufmontiers",note:5,auteur:"Membre",texte:"Super club",date:"2026-06-08",source:"Google"},
+    {id:12,club:"Chauconin-Neufmontiers",note:4,auteur:"Membre",texte:"Nice gym but shame there is no check on shoe cleanliness - dirt on machines sometimes",date:"2026-06-08",source:"Google"},
+  ],
+  avisLastFetch:{"Meaux Victoire":"2026-06-08","Lagny-sur-Marne":"2026-06-08","Serris Danube":"2026-06-08","Nanteuil-lès-Meaux":"2026-06-08","Chauconin-Neufmontiers":"2026-06-08"},
+};
+
+// ═══ PERSISTENT STORAGE — Firebase Firestore (sync temps réel entre appareils) ═══
+const STORAGE_KEY="bf_dash_s77_v1";
+const FS_DOC_REF=firestoreDB.collection("dashboards").doc(STORAGE_KEY);
+let _isRemoteWrite=false; // évite de re-déclencher une sauvegarde quand on reçoit nos propres écritures
+let _liveSyncStarted=false;
+
+function loadDataSync(){try{const s=localStorage.getItem(STORAGE_KEY);if(s)return JSON.parse(s)}catch(e){}return null}
+
+async function loadDataAsync(){
+  try{
+    const snap=await FS_DOC_REF.get();
+    if(snap.exists){
+      const remote=snap.data();
+      if(remote&&remote.payload)return JSON.parse(remote.payload);
+    }
+  }catch(e){console.log("Firestore load error:",e)}
+  return loadDataSync();
+}
+
+let _saveTimer;
+function saveData(){
+  try{localStorage.setItem(STORAGE_KEY,JSON.stringify(DATA))}catch(e){}
+  if(_isRemoteWrite){_isRemoteWrite=false;return} // ne pas ré-écrire ce qu'on vient de recevoir
+  updateSaveIndicator("saving");
+  clearTimeout(_saveTimer);
+  _saveTimer=setTimeout(async()=>{
+    try{
+      await FS_DOC_REF.set({payload:JSON.stringify(DATA),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+      updateSaveIndicator("saved");
+    }catch(e){console.log("Firestore save error:",e);updateSaveIndicator("error")}
+  },500);
+}
+
+// Écoute en temps réel : si une modif arrive d'un autre appareil (PC ↔ iPhone), on met à jour l'affichage automatiquement
+function startLiveSync(){
+  if(_liveSyncStarted)return;
+  _liveSyncStarted=true;
+  FS_DOC_REF.onSnapshot(function(snap){
+    if(!snap.exists)return;
+    if(snap.metadata.hasPendingWrites)return; // ignore l'écho de notre propre écriture locale
+    const remote=snap.data();
+    if(!remote||!remote.payload)return;
+    try{
+      const parsed=JSON.parse(remote.payload);
+      if(JSON.stringify(parsed)===JSON.stringify(DATA))return; // rien de nouveau
+      _isRemoteWrite=true;
+      DATA=parsed;
+      hydrateData();
+      try{localStorage.setItem(STORAGE_KEY,JSON.stringify(DATA))}catch(e){}
+      render();
+      updateSaveIndicator("saved");
+      showToast("🔄 Mis à jour depuis un autre appareil");
+    }catch(e){console.log("Live sync parse error:",e)}
+  },function(err){
+    console.log("Live sync error:",err);
+    updateSaveIndicator("error");
+  });
+}
+
+function updateSaveIndicator(s){
+  const el=document.getElementById("saveIndicator");
+  if(!el)return;
+  if(s==="saving"){el.innerHTML="⏳ Sauvegarde...";el.style.background="rgba(245,158,11,.15)";el.style.color="#F59E0B"}
+  else if(s==="saved"){el.innerHTML="✓ Synchronisé";el.style.background="rgba(22,163,74,.12)";el.style.color="#16A34A"}
+  else{el.innerHTML="⚠ Hors ligne";el.style.background="rgba(220,38,38,.12)";el.style.color="#DC2626"}
+}
+
+// ═══ CHANGELOG ═══
+function logChange(action){
+  if(!DATA.changelog)DATA.changelog=[];
+if(!DATA.cvs)DATA.cvs=[];
+if(!DATA.followups)DATA.followups=[];
+if(!DATA.alertSettings)DATA.alertSettings={phone:"",smsEnabled:false,whatsappEnabled:false,emailAlerts:true};
+if(!DATA.avisGoogle)DATA.avisGoogle=[];
+if(!DATA.avisLastFetch)DATA.avisLastFetch={};
+if(!DATA.importedFiles)DATA.importedFiles=[];
+if(!DATA.importHistory)DATA.importHistory=[];
+  DATA.changelog.unshift({time:new Date().toISOString(),action});
+  if(DATA.changelog.length>150)DATA.changelog=DATA.changelog.slice(0,150);
+}
+
+// ═══ NOTIFICATIONS ═══
+function addNotification(title,body,type){
+  if(!DATA.notifications)DATA.notifications=[];
+  DATA.notifications.unshift({id:Date.now(),title,body,type:type||"info",read:false,time:new Date().toISOString()});
+  if(DATA.notifications.length>100)DATA.notifications=DATA.notifications.slice(0,100);
+  saveData();renderTabs();
+  showToast(title);
+  fireBrowserNotification(title,body);
+}
+
+// ═══ NOTIFICATIONS NAVIGATEUR (alertes même app en arrière-plan) ═══
+function fireBrowserNotification(title,body){
+  if(!("Notification" in window))return;
+  if(Notification.permission!=="granted")return;
+  try{
+    if(navigator.serviceWorker&&navigator.serviceWorker.ready){
+      navigator.serviceWorker.ready.then(function(reg){
+        reg.showNotification(title,{body:body||"",icon:"icon-192.png",badge:"icon-192.png",tag:"bf-dash-"+Date.now()});
+      });
+    }else{
+      new Notification(title,{body:body||"",icon:"icon-192.png"});
+    }
+  }catch(e){console.log("Notification error:",e)}
+}
+window.requestNotifPermission=function(){
+  if(!("Notification" in window)){showToast("⚠ Notifications non supportées sur ce navigateur");return}
+  Notification.requestPermission().then(function(perm){
+    if(perm==="granted"){showToast("✓ Notifications activées");fireBrowserNotification("🔔 Notifications activées","Tu recevras désormais les alertes importantes.")}
+    else{showToast("Notifications refusées")}
+    render();
+  });
+};
+function markAllNotifRead(){if(!DATA.notifications)return;DATA.notifications.forEach(n=>n.read=true);saveData();renderTabs();renderNotifPanel()}
+function deleteNotif(id){DATA.notifications=DATA.notifications.filter(n=>n.id!==id);saveData();renderTabs();renderNotifPanel()}
+function toggleNotifPanel(){
+  const p=document.getElementById("notifPanel");
+  if(!p)return;
+  const open=p.classList.toggle("open");
+  if(open)renderNotifPanel();
+}
+function renderNotifPanel(){
+  const list=document.getElementById("notifList");
+  if(!list)return;
+  const notifs=DATA.notifications||[];
+  if(notifs.length===0){list.innerHTML='<div style="padding:40px 20px;text-align:center;color:#9CA3AF">Aucune notification</div>';return}
+  list.innerHTML=notifs.map(n=>`
+    <div class="notif-item ${n.read?'':'notif-unread'} ${n.type==='urgent'?'notif-urgent':''}" onclick="DATA.notifications.find(x=>x.id===${n.id}).read=true;saveData();renderTabs();renderNotifPanel()">
+      <div style="display:flex;justify-content:space-between;align-items:start">
+        <div class="notif-title">${n.title}</div>
+        <span class="notif-tag notif-tag-${n.type}">${n.type==='urgent'?'🚨 Urgent':n.type==='reminder'?'⏰ Rappel':'ℹ️ Info'}</span>
+      </div>
+      <div class="notif-body">${n.body||''}</div>
+      <div class="notif-time">${fmtDate(n.time)} <button class="btn-danger" style="margin-left:6px;padding:2px 6px;font-size:10px" onclick="event.stopPropagation();deleteNotif(${n.id})">✕</button></div>
+    </div>
+  `).join("");
+}
+
+// ═══ REMINDERS ═══
+function addReminder(title,date,time,priority,club){
+  if(!DATA.reminders)DATA.reminders=[];
+  const r={id:Date.now(),title,datetime:date+"T"+(time||"09:00"),priority:priority||"normale",club:club||"Tous",done:false,created:new Date().toISOString()};
+  DATA.reminders.push(r);
+  logChange("Rappel ajouté : "+title);
+  if(priority==="urgent")addNotification("🚨 Rappel urgent créé",title+" — "+fmtDate(r.datetime),"urgent");
+  saveData();
+}
+function toggleReminderDone(id){const r=(DATA.reminders||[]).find(x=>x.id===id);if(r){r.done=!r.done;logChange("Rappel "+(r.done?"terminé":"réouvert")+" : "+r.title);saveData();render()}}
+function deleteReminder(id){const r=(DATA.reminders||[]).find(x=>x.id===id);DATA.reminders=DATA.reminders.filter(x=>x.id!==id);logChange("Rappel supprimé : "+(r?r.title:"?"));saveData();render()}
+function checkReminders(){
+  checkCalendarAlerts();
+  checkGoogleReviewsAge();
+  const now=new Date();
+  (DATA.reminders||[]).forEach(r=>{
+    if(!r.done&&!r.notified&&new Date(r.datetime)<=now){
+      r.notified=true;
+      addNotification(r.priority==="urgent"?"🚨 RAPPEL URGENT ÉCHU":"⏰ Rappel échu",r.title+" — prévu le "+fmtDate(r.datetime)+(r.club!=="Tous"?" ("+r.club+")":""),r.priority==="urgent"?"urgent":"reminder");
+    }
+  });
+}
+
+// ═══ HOOK saveData into existing actions for changelog ═══
+const _origSaveData=saveData;
+
+function hydrateData(){
+  if(!DATA.arrets)DATA.arrets=[];
+  if(!DATA.modules)DATA.modules=JSON.parse(JSON.stringify(DEFAULT_MODULES));
+  if(!DATA.notifications)DATA.notifications=[];
+  if(!DATA.reminders)DATA.reminders=[];
+  if(!DATA.changelog)DATA.changelog=[];
+  if(!DATA.cvs)DATA.cvs=[];
+  if(!DATA.followups)DATA.followups=[];
+  if(!DATA.alertSettings)DATA.alertSettings={phone:"",smsEnabled:false,whatsappEnabled:false,emailAlerts:true};
+  if(!DATA.avisGoogle)DATA.avisGoogle=[];
+  if(!DATA.avisLastFetch)DATA.avisLastFetch={};
+  if(!DATA.importedFiles)DATA.importedFiles=[];
+  if(!DATA.importHistory)DATA.importHistory=[];
+  if(!DATA.heures)DATA.heures=[];
+  if(!DATA.heuresContrat)DATA.heuresContrat=12.5;
+  if(!DATA.calEvents)DATA.calEvents=[];
+  if(!DATA.calAlerts)DATA.calAlerts=[];
+  if(!DATA.workday)DATA.workday={employees:[],notes:[],lastSync:""};
+  if(!DATA.clubVisitLog)DATA.clubVisitLog=[];
+  if(!DATA.agentPlanning)DATA.agentPlanning=[];
+  if(!DATA.checklistLogs)DATA.checklistLogs=[];
+  if(!DATA.contactsInternes)DATA.contactsInternes=[{id:1,nom:"Florian GALLO",role:"Regional Manager",tel:"+33607316241",region:"BFFR03.36"},{id:2,nom:"Mathilde Heimst",role:"Ticketing SSD & CVC / Facility",tel:""},{id:3,nom:"Shanael Zaoui",role:"HRBP",tel:""},{id:4,nom:"Thomas Marechal",role:"FSD",tel:""},{id:5,nom:"Laura Joeckle",role:"Conformite & Formations",tel:""},{id:6,nom:"Pierre Fuoc",role:"Planning",tel:""},{id:7,nom:"Sanaa Hilmi",role:"Quality Assessment",tel:""},{id:8,nom:"Ana Castro",role:"Partner Manager",tel:""}];
+  if(!DATA.googleApiKey)DATA.googleApiKey="";
+  if(!DATA.lastGoogleAutoRefresh)DATA.lastGoogleAutoRefresh="";
+  if(!DATA.ticketExports)DATA.ticketExports=[];
+  if(!DATA.salles)DATA.salles=[...DEFAULT_SALLES];
+  DATA.team.forEach(t=>{if(!t.color)t.color="blue";if(!t.salle)t.salle="Non affecté";if(t.rank===undefined)t.rank=99;if(!t.note)t.note=""});
+  DATA.tickets.forEach(t=>{if(!t.ref)t.ref="";if(!t.salle)t.salle="Non affecté"});
+}
+
+let DATA=loadDataSync()||JSON.parse(JSON.stringify(DEFAULT_DATA));
+hydrateData();
+
+let activeTab="today";
+let selectedClub="all";
+let teamSort="salle";
+
+function nextId(a){return a.length?Math.max(...a.map(x=>x.id))+1:1}
+function getColorHex(c){const x=AGENT_COLORS.find(a=>a.id===c);return x?x.hex:"#6B7280"}
+function sevColor(s){if(s==="haute")return{bg:"#FEE2E2",text:"#991B1B",dot:"#DC2626"};if(s==="moyenne")return{bg:"#FEF3C7",text:"#92400E",dot:"#F59E0B"};return{bg:"#DBEAFE",text:"#1E40AF",dot:"#3B82F6"}}
+function clubBadge(s){if(s==="ok")return{bg:"#D1FAE5",text:"#065F46",label:"Opérationnel"};if(s==="alert")return{bg:"#FEE2E2",text:"#991B1B",label:"Attention"};return{bg:"#FEF3C7",text:"#92400E",label:"Travaux"}}
+function getClubCode(name){const c=DATA.clubs.find(x=>x.name===name);return c?c.code:""}
+function fmtDate(d){return d?new Date(d).toLocaleDateString("fr-FR",{day:"numeric",month:"short",year:"numeric"}):"—"}
+function fmtDateShort(d){return d?new Date(d).toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit",year:"2-digit"}):"—"}
+function ini(n){return n.split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase()}
+function fil(a){return selectedClub==="all"?a:a.filter(x=>x.club===selectedClub)}
+function clubOpts(sel){return DATA.clubs.map(c=>`<option value="${c.name}" ${c.name===sel?'selected':''}>${c.name} (${c.code})</option>`).join("")}
+function salleOpts(sel){return DATA.salles.map(s=>`<option value="${s}" ${s===sel?'selected':''}>${s}</option>`).join("")}
+function statutOpts(sel){return STATUTS.map(s=>`<option value="${s.id}" ${s.id===sel?'selected':''}>${s.label}</option>`).join("")}
+function colorSwatches(sel){return `<div class="color-picker-row">${AGENT_COLORS.map(c=>`<div class="color-swatch ${sel===c.id?'selected':''}" style="background:${c.hex}" data-color="${c.id}" title="${c.label}" onclick="selectColor(this,'${c.id}')"></div>`).join("")}</div>`}
+function agentOpts(sel){return DATA.team.map(t=>`<option value="${t.id}" ${t.id==sel?'selected':''}>${t.name} (${t.club})</option>`).join("")}
+let _selectedColor="";
+window.selectColor=function(el,cid){_selectedColor=cid;el.closest(".color-picker-row").querySelectorAll(".color-swatch").forEach(s=>s.classList.remove("selected"));el.classList.add("selected")};
+function showModal(h){document.getElementById("modalContainer").innerHTML=`<div class="form-overlay" onclick="if(event.target===this)closeModal()"><div class="form-modal">${h}</div></div>`}
+function closeModal(){document.getElementById("modalContainer").innerHTML=""}
+function pct(n,t){return t===0?0:Math.round(n/t*100)}
+
+function showToast(msg){
+  const t=document.createElement("div");
+  t.style.cssText="background:#0F1729;color:#fff;padding:12px 20px;border-radius:10px;margin-top:8px;box-shadow:0 10px 30px rgba(0,0,0,0.2);animation:slideUp .3s ease;font-size:13px;font-weight:500";
+  t.textContent=msg;
+  document.getElementById("toastContainer").appendChild(t);
+  setTimeout(()=>t.remove(),3000);
+}
+
+// Calcul des jours entre deux dates
+function daysBetween(d1,d2){
+  if(!d1||!d2)return 0;
+  return Math.ceil((new Date(d2)-new Date(d1))/(1000*60*60*24))+1;
+}
+
+// Est-ce qu'un arrêt est actif aujourd'hui ?
+function arretActif(a){
+  const today=new Date().toISOString().split("T")[0];
+  return a.dateDebut<=today&&(!a.dateFin||a.dateFin>=today);
+}
+
+// Récupère les agents actuellement en arrêt
+function agentsEnArret(type){
+  const today=new Date().toISOString().split("T")[0];
+  return DATA.arrets.filter(a=>(!type||a.type===type)&&a.dateDebut<=today&&(!a.dateFin||a.dateFin>=today));
+}
+
+function getAgent(id){return DATA.team.find(t=>t.id==id)}
+function getAgentName(id){const a=getAgent(id);return a?a.name:"—"}
+function getAgentClub(id){const a=getAgent(id);return a?a.club:"—"}
+
+// ═══ WAZE + TEMPS DE TRAJET ═══
+function wazeUrl(lat,lng){return `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`}
+let _travelTimes={}; // {clubId: "12 min"}
+function refreshTravelTimes(){
+  const btn=document.getElementById("btnRefreshTravel");
+  if(btn){btn.textContent="⏳ Localisation...";btn.disabled=true}
+  if(!navigator.geolocation){
+    showToast("La géolocalisation n'est pas disponible sur ce navigateur");
+    if(btn){btn.textContent="🕐 Actualiser temps de trajet";btn.disabled=false}
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(async function(pos){
+    const myLat=pos.coords.latitude, myLng=pos.coords.longitude;
+    if(btn)btn.textContent="⏳ Calcul des trajets...";
+    await Promise.all(DATA.clubs.map(async function(c){
+      try{
+        const url=`https://router.project-osrm.org/route/v1/driving/${myLng},${myLat};${c.lng},${c.lat}?overview=false`;
+        const res=await fetch(url);
+        const data=await res.json();
+        if(data&&data.routes&&data.routes[0]){
+          const mins=Math.round(data.routes[0].duration/60);
+          _travelTimes[c.id]=mins+" min";
+          const el=document.getElementById("travelTime-"+c.id);
+          if(el)el.innerHTML="🚗 "+mins+" min de route";
+        }
+      }catch(e){console.log("Erreur trajet club "+c.id,e)}
+    }));
+    if(btn){btn.textContent="🕐 Actualiser temps de trajet";btn.disabled=false}
+    showToast("✓ Temps de trajet mis à jour");
+  },function(err){
+    showToast("⚠ Position non disponible — autorise la géolocalisation");
+    if(btn){btn.textContent="🕐 Actualiser temps de trajet";btn.disabled=false}
+  },{enableHighAccuracy:true,timeout:10000});
+}
+
+function gaugeCircle(percent,color,size=52){
+  const r=20,circ=2*Math.PI*r,offset=circ-(percent/100)*circ;
+  return `<div class="gauge-circle" style="width:${size}px;height:${size}px"><svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="#F0F0F3" stroke-width="5"/><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${color}" stroke-width="5" stroke-dasharray="${circ}" stroke-dashoffset="${offset}" stroke-linecap="round"/></svg><div class="gauge-text" style="color:${color}">${percent}%</div></div>`;
+}
+
+document.getElementById("headerDate").textContent=new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+
+const TABS=[
+  {id:"today",label:"Aujourd'hui",icon:"🌅"},
+  {id:"dashboard",label:"Tableau de bord",icon:"📊"},
+  {id:"moduleTickets",label:"Module Tickets",icon:"🎫"},
+  {id:"heures",label:"Heures de travail",icon:"🕐"},
+  {id:"calendrier",label:"Calendrier",icon:"📆"},
+  {id:"reminders",label:"Rappels",icon:"⏰"},
+  {id:"followups",label:"Relances tickets",icon:"🔄"},
+  {id:"cv",label:"Recrutement / CV",icon:"📄"},
+  {id:"avis",label:"Avis Google",icon:"⭐"},
+  {id:"overview",label:"Clubs",icon:"◉"},
+  {id:"team",label:"Équipe & Salles",icon:"◇"},
+  {id:"arrets",label:"Maladie & AT",icon:"🏥"},
+  {id:"visits",label:"Visites",icon:"◈"},
+  {id:"incidents",label:"Incidents",icon:"◆"},
+  {id:"tickets",label:"Tickets travaux",icon:"⚙"},
+  {id:"carte",label:"Carte & Trajets",icon:"🗺"},
+  {id:"contacts",label:"Contacts & Presta",icon:"📞"},
+  {id:"checklist",label:"Check-list Visite",icon:"✅"},
+  {id:"workday",label:"Workday",icon:"👥"},
+  {id:"changelog",label:"Historique",icon:"📋"},
+  {id:"imports",label:"Import Excel",icon:"📥"},
+  {id:"config",label:"Configuration",icon:"⚙️"},
+];
+
+function renderTabs(){
+  const c=document.getElementById("tabsContainer");
+  const activesCount=agentsEnArret().length;
+  const urgentReminders=(DATA.reminders||[]).filter(r=>!r.done&&r.priority==="urgent").length;
+  const pendingReminders=(DATA.reminders||[]).filter(r=>!r.done).length;
+  const unreadNotifs=(DATA.notifications||[]).filter(n=>!n.read).length;
+  c.innerHTML=TABS.map(t=>{
+    let badge='';
+    if(t.id==="arrets"&&activesCount>0)badge=`<span class="tab-badge">${activesCount}</span>`;
+    if(t.id==="reminders"&&pendingReminders>0)badge=`<span class="tab-badge" style="${urgentReminders>0?'background:#DC2626':''}">${pendingReminders}</span>`;
+    const overdueFollowups=getOverdueFollowups().length;
+    const newCVs=(DATA.cvs||[]).filter(cv=>cv.status==="nouveau").length;
+    if(t.id==="followups"&&overdueFollowups>0)badge=`<span class="tab-badge">${overdueFollowups}</span>`;
+    if(t.id==="cv"&&newCVs>0)badge=`<span class="tab-badge" style="background:#16A34A">${newCVs}</span>`;
+    const activeTickets=DATA.tickets.filter(t2=>t2.status!=="termine").length;
+    const todayAlerts=(DATA.calEvents||[]).filter(e=>{const d=e.date;const td=new Date().toISOString().split("T")[0];return d===td}).length;
+    if(t.id==="calendrier"&&todayAlerts>0)badge=`<span class="tab-badge" style="background:#9333EA">${todayAlerts}</span>`;
+    if(t.id==="moduleTickets"&&activeTickets>0)badge=`<span class="tab-badge" style="background:#FE7F00">${activeTickets}</span>`;
+    return `<button class="tab ${activeTab===t.id?'active':''}" data-tab="${t.id}"><span style="font-size:12px">${t.icon}</span> ${t.label}${badge}</button>`;
+  }).join("");
+  c.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{activeTab=b.dataset.tab;render()});
+  // Update header notif badge
+  const hb=document.getElementById("notifBadgeHeader");
+  if(hb)hb.textContent=unreadNotifs>0?`(${unreadNotifs})`:"";
+  const permBtn=document.getElementById("notifPermBtn");
+  if(permBtn&&("Notification" in window)){
+    permBtn.textContent=Notification.permission==="granted"?"🔔 Activées":"🔕 Activer alertes";
+  }
+}
+function renderFilters(){
+  const c=document.getElementById("filtersContainer");
+  if(activeTab==="config"||activeTab==="today"){c.innerHTML="";return}
+  const all=[{n:"all",l:"Tous les clubs",code:""},...DATA.clubs.map(cl=>({n:cl.name,l:cl.name,code:cl.code}))];
+  c.innerHTML=all.map(x=>`<button class="filter-btn ${selectedClub===x.n?'active':''}" data-c="${x.n}">${x.l}${x.code?`<span class="club-code">${x.code}</span>`:''}</button>`).join("");
+  c.querySelectorAll(".filter-btn").forEach(b=>b.onclick=()=>{selectedClub=b.dataset.c;render()});
+}
+
+function sortTeam(arr,by){
+  const c=[...arr];
+  if(by==="rank")c.sort((a,b)=>a.rank-b.rank);
+  else if(by==="name")c.sort((a,b)=>a.name.localeCompare(b.name));
+  else if(by==="color")c.sort((a,b)=>a.color.localeCompare(b.color));
+  else c.sort((a,b)=>a.salle.localeCompare(b.salle)||a.rank-b.rank);
+  return c;
+}
+
+function getAgentStatus(agentId){
+  // Détermine le statut d'un agent en tenant compte des arrêts actifs
+  const arret=agentsEnArret().find(a=>a.agentId==agentId);
+  if(arret)return arret.type; // "maladie" ou "AT"
+  const t=getAgent(agentId);
+  return t?t.status:"présent";
+}
+
+function renderAgentRow(t){
+  const ch=getColorHex(t.color);
+  const realStatus=getAgentStatus(t.id);
+  const arret=agentsEnArret().find(a=>a.agentId==t.id);
+  let statusColor,statusLabel;
+  if(realStatus==="maladie"){statusColor="#8B5CF6";statusLabel="🏥 Maladie"}
+  else if(realStatus==="AT"){statusColor="#EC4899";statusLabel="⚠ AT"}
+  else{statusColor=statColor(realStatus);statusLabel=statLabel(realStatus)}
+  const arretInfo=arret?` <span style="font-size:10px;color:#9CA3AF">jusqu'au ${fmtDateShort(arret.dateFin)||'?'}</span>`:'';
+  const waBtn=t.tel?`<a href="https://wa.me/33${t.tel.replace(/[^0-9]/g,"").replace(/^0/,"")}" target="_blank" class="btn-secondary" style="text-decoration:none" title="WhatsApp">💬</a>`:'';
+  return `<div class="panel-row"><div class="row-left"><span class="rank-badge">#${t.rank}</span><div class="avatar" style="background:${ch}">${ini(t.name)}</div><div><div class="row-name" style="display:flex;align-items:center;gap:6px">${t.name} <div class="color-tag" style="background:${ch}"></div></div><div class="row-sub">${t.club} · ${t.salle} · ${t.role}${t.note?' · '+t.note:''}</div></div></div><div class="row-right"><div class="agent-status-dot" style="background:${statusColor}"></div><span style="font-size:12px;font-weight:500;color:${statusColor};min-width:90px">${statusLabel}${arretInfo}</span>${waBtn}<button class="btn-move" onclick="moveRank(${t.id},-1)">▲</button><button class="btn-move" onclick="moveRank(${t.id},1)">▼</button><button class="btn-secondary" onclick="editAgent(${t.id})">Modifier</button><button class="btn-danger" onclick="deleteTeam(${t.id})">✕</button></div></div>`;
+}
+
+// ══════════════════════════════════════════
+// STATS TEXT GENERATION
+// ══════════════════════════════════════════
+function generateStatsText(){
+  const fTeam=fil(DATA.team),fInc=fil(DATA.incidents),fVis=fil(DATA.visits),fTk=fil(DATA.tickets);
+  const today=new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+  const scope=selectedClub==="all"?"Tous les clubs":selectedClub;
+  const arretsActifs=DATA.arrets.filter(a=>{if(selectedClub!=="all"&&getAgentClub(a.agentId)!==selectedClub)return false;return arretActif(a)});
+  const maladies=arretsActifs.filter(a=>a.type==="maladie");
+  const ATs=arretsActifs.filter(a=>a.type==="AT");
+  const agentsPresent=fTeam.filter(t=>{const s=getAgentStatus(t.id);return s==="présent"}).length;
+  const tkActifs=fTk.filter(t=>t.status!=="termine").length;
+  const tkTermine=fTk.filter(t=>t.status==="termine").length;
+  const tkUrgent=fTk.filter(t=>t.priority==="urgente"&&t.status!=="termine").length;
+
+  let out=`📊 RAPPORT CLUSTER MANAGER - BASIC-FIT\n${today}\nPérimètre : ${scope}\n${"─".repeat(50)}\n\n`;
+
+  out+=`👥 ÉQUIPE (${fTeam.length} agents)\n  • Présents : ${agentsPresent}\n  • Taux de présence : ${pct(agentsPresent,fTeam.length)}%\n\n`;
+
+  if(arretsActifs.length>0){
+    out+=`⚠ ARRÊTS EN COURS (${arretsActifs.length})\n`;
+    if(maladies.length>0){
+      out+=`  🏥 MALADIE (${maladies.length})\n`;
+      maladies.forEach(a=>{const n=daysBetween(a.dateDebut,a.dateFin||new Date().toISOString().split("T")[0]);out+=`    • ${getAgentName(a.agentId)} (${getAgentClub(a.agentId)}) - du ${fmtDateShort(a.dateDebut)} au ${a.dateFin?fmtDateShort(a.dateFin):'?'} (${n}j)\n`});
+    }
+    if(ATs.length>0){
+      out+=`  ⚠ ACCIDENTS DU TRAVAIL (${ATs.length})\n`;
+      ATs.forEach(a=>{const n=daysBetween(a.dateDebut,a.dateFin||new Date().toISOString().split("T")[0]);out+=`    • ${getAgentName(a.agentId)} (${getAgentClub(a.agentId)}) - du ${fmtDateShort(a.dateDebut)} au ${a.dateFin?fmtDateShort(a.dateFin):'?'} (${n}j)\n`});
+    }
+    out+=`\n`;
+  }
+
+  out+=`⚙ TICKETS TRAVAUX\n  • Actifs : ${tkActifs}\n  • Terminés : ${tkTermine}\n  • Urgents non résolus : ${tkUrgent}\n  • Taux de résolution : ${pct(tkTermine,fTk.length)}%\n\n`;
+
+  const tkBySalle={};
+  fTk.filter(t=>t.status!=="termine").forEach(t=>{tkBySalle[t.salle]=(tkBySalle[t.salle]||0)+1});
+  const topSalles=Object.entries(tkBySalle).sort((a,b)=>b[1]-a[1]);
+  if(topSalles.length>0){
+    out+=`🔧 TICKETS PAR SALLE (actifs)\n`;
+    topSalles.forEach(([s,v])=>{out+=`  • ${s} : ${v} ticket${v>1?'s':''}\n`});
+    out+=`\n`;
+  }
+
+  if(selectedClub==="all"){
+    out+=`📍 PERFORMANCE PAR CLUB\n`;
+    DATA.clubs.forEach(c=>{
+      const ct=DATA.team.filter(t=>t.club===c.name);
+      const ca=DATA.arrets.filter(a=>getAgentClub(a.agentId)===c.name&&arretActif(a));
+      const ctk=DATA.tickets.filter(t=>t.club===c.name&&t.status!=="termine").length;
+      out+=`  ${c.name} (${c.code})\n    - ${ct.length} agents${ca.length>0?` · ${ca.length} en arrêt`:''}\n    - ${ctk} ticket${ctk>1?'s':''} actif${ctk>1?'s':''}\n`;
+    });
+    out+=`\n`;
+  }
+
+  out+=`${"─".repeat(50)}\nRapport généré le ${new Date().toLocaleString("fr-FR")}\nCluster Manager - Laurent VIRAMA\n`;
+  return out;
+}
+
+window.exportStatsEmail=function(){
+  const stats=generateStatsText();
+  window.location.href=`mailto:?subject=${encodeURIComponent("Rapport Cluster Manager - "+new Date().toLocaleDateString("fr-FR"))}&body=${encodeURIComponent(stats)}`;
+};
+window.exportStatsText=function(){
+  const stats=generateStatsText();
+  navigator.clipboard.writeText(stats).then(()=>showToast("✓ Copié dans le presse-papier")).catch(()=>{
+    showModal(`<div class="form-title">Statistiques à copier</div><textarea class="form-textarea" style="height:400px;font-family:monospace;font-size:12px" readonly onclick="this.select()">${stats}</textarea><div class="form-actions"><button class="form-submit" onclick="closeModal()">Fermer</button></div>`);
+  });
+};
+
+// ══════════════════════════════════════════
+// MODULE RENDERERS (pour dashboard configurable)
+// ══════════════════════════════════════════
+function renderModule(id, fTeam, fTk) {
+  const SL={ouvert:"Ouvert",encours:"En cours",planifie:"Planifié",termine:"Terminé",attente:"En attente"};
+  const totalAgents=fTeam.length;
+  const arretsActifs=DATA.arrets.filter(a=>{if(selectedClub!=="all"&&getAgentClub(a.agentId)!==selectedClub)return false;return arretActif(a)});
+  const maladieCount=arretsActifs.filter(a=>a.type==="maladie").length;
+  const ATCount=arretsActifs.filter(a=>a.type==="AT").length;
+  const agentsPresent=fTeam.filter(t=>getAgentStatus(t.id)==="présent").length;
+  const tauxPresence=pct(agentsPresent,totalAgents);
+  const tauxAbsent=pct(maladieCount+ATCount,totalAgents);
+  const totalTickets=fTk.length;
+  const tkTermine=fTk.filter(t=>t.status==="termine").length;
+  const tkOuvert=fTk.filter(t=>t.status==="ouvert").length;
+  const tkEncours=fTk.filter(t=>t.status==="encours").length;
+  const tkPlanifie=fTk.filter(t=>t.status==="planifie").length;
+  const tkAttente=fTk.filter(t=>t.status==="attente").length;
+  const tauxTickets=pct(tkTermine,totalTickets);
+  const tkBySalle={};
+  fTk.forEach(t=>{if(!tkBySalle[t.salle])tkBySalle[t.salle]={total:0,active:0};tkBySalle[t.salle].total++;if(t.status!=="termine")tkBySalle[t.salle].active++});
+  const topSallesTickets=Object.entries(tkBySalle).sort((a,b)=>b[1].active-a[1].active);
+  const maxSalleTk=Math.max(...topSallesTickets.map(([,v])=>v.total),1);
+  const agentsBySalle={};
+  DATA.salles.forEach(s=>agentsBySalle[s]=0);
+  fTeam.forEach(t=>{if(!agentsBySalle[t.salle])agentsBySalle[t.salle]=0;agentsBySalle[t.salle]++});
+  const maxSalle=Math.max(...Object.values(agentsBySalle),1);
+
+  const dragAttrs=`draggable="true" data-module-id="${id}" ondragstart="handleDragStart(event)" ondragend="handleDragEnd(event)" ondragover="handleDragOver(event)" ondrop="handleDrop(event)" ondragleave="handleDragLeave(event)"`;
+
+  if(id==="indicateurs"){
+    return `<div class="panel draggable" ${dragAttrs} style="padding:16px;padding-right:40px"><div class="panel-drag-handle">⋮⋮</div>
+      <div class="section-title" style="margin-bottom:12px">📊 Indicateurs clés <span>${selectedClub==="all"?"Tous clubs":selectedClub+' · '+getClubCode(selectedClub)}</span></div>
+      <div class="stats-grid" style="margin-bottom:0;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+        <div class="stat-card"><div class="stat-label">Présence</div><div style="display:flex;align-items:center;gap:14px">${gaugeCircle(tauxPresence,"#16A34A")}<div><div class="stat-value" style="color:#16A34A;font-size:22px">${agentsPresent}/${totalAgents}</div><div class="stat-sub">Agents présents</div></div></div></div>
+        <div class="stat-card" style="border-left:3px solid #8B5CF6"><div class="stat-label">Arrêts maladie</div><div style="display:flex;align-items:center;gap:14px">${gaugeCircle(pct(maladieCount,totalAgents),"#8B5CF6")}<div><div class="stat-value" style="color:#8B5CF6;font-size:22px">${maladieCount}</div><div class="stat-sub">En cours</div></div></div></div>
+        <div class="stat-card" style="border-left:3px solid #EC4899"><div class="stat-label">Accidents travail</div><div style="display:flex;align-items:center;gap:14px">${gaugeCircle(pct(ATCount,totalAgents),"#EC4899")}<div><div class="stat-value" style="color:#EC4899;font-size:22px">${ATCount}</div><div class="stat-sub">AT en cours</div></div></div></div>
+        <div class="stat-card"><div class="stat-label">Tickets actifs</div><div style="display:flex;align-items:center;gap:14px">${gaugeCircle(tauxTickets,"#8B5CF6")}<div><div class="stat-value" style="color:#8B5CF6;font-size:22px">${totalTickets-tkTermine}</div><div class="stat-sub">${tkTermine} terminés</div></div></div></div>
+      </div></div>`;
+  }
+  if(id==="topSalles"){
+    return `<div class="panel draggable" ${dragAttrs}><div class="panel-drag-handle">⋮⋮</div><div class="panel-header"><span class="panel-title">🏆 Top salles par tickets actifs</span></div><div style="padding:6px 0">
+      ${topSallesTickets.length===0?'<div class="empty-state"><div class="empty-state-text">Aucun ticket</div></div>':topSallesTickets.slice(0,6).map(([s,v],i)=>`<div class="leaderboard-row"><span class="leaderboard-rank">${i+1}</span><div class="leaderboard-name">${s}</div><span class="leaderboard-count">${v.active} actif${v.active>1?'s':''} / ${v.total}</span></div>`).join("")}
+    </div></div>`;
+  }
+  if(id==="ticketsStatut"){
+    return `<div class="panel draggable" ${dragAttrs}><div class="panel-drag-handle">⋮⋮</div><div class="panel-header"><span class="panel-title">Tickets par statut</span></div><div style="padding:16px 20px">
+      <div class="chart-bar-row"><div class="chart-bar-label">Ouvert</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:${pct(tkOuvert,totalTickets)}%;background:#DC2626">${tkOuvert}</div></div></div>
+      <div class="chart-bar-row"><div class="chart-bar-label">En cours</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:${pct(tkEncours,totalTickets)}%;background:#F59E0B">${tkEncours}</div></div></div>
+      <div class="chart-bar-row"><div class="chart-bar-label">En attente</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:${pct(tkAttente,totalTickets)}%;background:#6366F1">${tkAttente}</div></div></div>
+      <div class="chart-bar-row"><div class="chart-bar-label">Planifié</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:${pct(tkPlanifie,totalTickets)}%;background:#3B82F6">${tkPlanifie}</div></div></div>
+      <div class="chart-bar-row"><div class="chart-bar-label">Terminé</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:${pct(tkTermine,totalTickets)}%;background:#16A34A">${tkTermine}</div></div></div>
+    </div></div>`;
+  }
+  if(id==="agentsSalle"){
+    return `<div class="panel draggable" ${dragAttrs}><div class="panel-drag-handle">⋮⋮</div><div class="panel-header"><span class="panel-title">Agents par salle</span></div><div style="padding:16px 20px">
+      ${Object.entries(agentsBySalle).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).map(([s,v])=>`<div class="chart-bar-row"><div class="chart-bar-label">${s}</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:${pct(v,maxSalle)}%;background:var(--c-accent)">${v}</div></div></div>`).join("")}
+    </div></div>`;
+  }
+  if(id==="volumeTickets"){
+    return `<div class="panel draggable" ${dragAttrs}><div class="panel-drag-handle">⋮⋮</div><div class="panel-header"><span class="panel-title">Volume tickets par salle</span></div><div style="padding:16px 20px">
+      ${topSallesTickets.map(([s,v])=>`<div class="chart-bar-row"><div class="chart-bar-label">${s}</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:${pct(v.total,maxSalleTk)}%;background:#8B5CF6">${v.total}</div></div></div>`).join("")}
+    </div></div>`;
+  }
+  if(id==="arrets"){
+    if(arretsActifs.length===0)return `<div class="panel draggable" ${dragAttrs}><div class="panel-drag-handle">⋮⋮</div><div class="panel-header"><span class="panel-title">🏥 Agents en arrêt</span></div><div class="empty-state" style="padding:20px"><div style="font-size:13px;color:#16A34A">✓ Aucun arrêt en cours</div></div></div>`;
+    return `<div class="panel draggable" ${dragAttrs}><div class="panel-drag-handle">⋮⋮</div><div class="panel-header"><span class="panel-title">🏥 Agents en arrêt (Maladie / AT)</span><span class="badge" style="background:#FEE2E2;color:#991B1B">${arretsActifs.length} en cours</span></div>
+      ${arretsActifs.map(a=>{const n=daysBetween(a.dateDebut,a.dateFin||new Date().toISOString().split("T")[0]);return `<div class="arret-card ${a.type}"><div><div class="row-name">${getAgentName(a.agentId)} ${a.type==="maladie"?'🏥':'⚠'}</div><div class="row-sub">${getAgentClub(a.agentId)} · ${a.type==="maladie"?"Arrêt maladie":"Accident du travail"}${a.note?' · '+a.note:''}</div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><div class="arret-dates"><span class="arret-date-box">${fmtDateShort(a.dateDebut)}</span>→<span class="arret-date-box">${a.dateFin?fmtDateShort(a.dateFin):'?'}</span></div><span class="arret-duree">${n}j</span></div></div>`}).join("")}
+    </div>`;
+  }
+  if(id==="tickets"){
+    return `<div class="panel draggable" ${dragAttrs}><div class="panel-drag-handle">⋮⋮</div><div class="panel-header"><span class="panel-title">Tickets en cours (priorité)</span><span class="badge" style="background:#FEE2E2;color:#991B1B">${totalTickets-tkTermine} actifs</span></div>
+      <div style="overflow-x:auto"><table class="data-table"><thead><tr><th>N°</th><th>Problème</th><th>Club</th><th>Salle</th><th>Priorité</th><th>Statut</th></tr></thead>
+      <tbody>${fTk.filter(t=>t.status!=="termine").sort((a,b)=>{const p={urgente:0,haute:1,normale:2,basse:3};return p[a.priority]-p[b.priority]}).map(t=>`<tr><td><span class="ticket-number">${t.number}</span></td><td><strong>${t.title}</strong></td><td>${t.club}</td><td>${t.salle||'—'}</td><td><span class="badge-sm prio-${t.priority}">${t.priority}</span></td><td><span class="badge-sm ticket-${t.status}">${SL[t.status]}</span></td></tr>`).join("")}${fTk.filter(t=>t.status!=="termine").length===0?'<tr><td colspan="6" style="text-align:center;color:#9CA3AF;padding:20px">Aucun ticket actif</td></tr>':''}</tbody></table></div>
+    </div>`;
+  }
+  if(id==="performance"){
+    return `<div class="panel draggable" ${dragAttrs}><div class="panel-drag-handle">⋮⋮</div><div class="panel-header"><span class="panel-title">Performance par club</span></div>
+      <div style="overflow-x:auto"><table class="data-table"><thead><tr><th>Club</th><th>Code</th><th>Agents</th><th>Présence</th><th>En arrêt</th><th>Tickets actifs</th><th>Statut</th></tr></thead>
+      <tbody>${DATA.clubs.map((c,cIdx)=>{const ct=DATA.team.filter(t=>t.club===c.name);const cp=ct.filter(t=>getAgentStatus(t.id)==="présent").length;const ca=DATA.arrets.filter(a=>getAgentClub(a.agentId)===c.name&&arretActif(a)).length;const ctk=DATA.tickets.filter(t=>t.club===c.name&&t.status!=="termine").length;const b=clubBadge(c.status);const presP=pct(cp,ct.length);return `<tr><td><strong>${c.name}</strong>${c.isHome?" 🏠":""}</td><td><span class="club-code">${c.code}</span></td><td>${ct.length}</td><td><div style="display:flex;align-items:center;gap:6px"><div class="progress-bar-bg" style="width:60px;height:6px"><div class="progress-bar-fill" style="width:${presP}%;background:${presP>=80?'#16A34A':presP>=50?'#F59E0B':'#DC2626'}"></div></div><span style="font-size:12px;font-weight:600">${presP}%</span></div></td><td>${ca>0?`<span style="color:#DC2626;font-weight:600">${ca}</span>`:'0'}</td><td><span style="font-weight:600;color:${ctk>0?'#DC2626':'#16A34A'}">${ctk}</span></td><td><span class="badge" style="background:${b.bg};color:${b.text}">${b.label}</span></td></tr>`}).join("")}</tbody></table></div>
+    </div>`;
+  }
+  return "";
+}
+
+// ══════════════════════════════════════════
+// DRAG & DROP FOR MODULES
+// ══════════════════════════════════════════
+let _draggedModule=null;
+window.handleDragStart=function(e){_draggedModule=e.currentTarget.dataset.moduleId;e.currentTarget.classList.add("dragging");e.dataTransfer.effectAllowed="move"};
+window.handleDragEnd=function(e){e.currentTarget.classList.remove("dragging");document.querySelectorAll(".panel.drag-over,.module-row.drag-over").forEach(el=>el.classList.remove("drag-over"))};
+window.handleDragOver=function(e){e.preventDefault();e.dataTransfer.dropEffect="move";e.currentTarget.classList.add("drag-over")};
+window.handleDragLeave=function(e){e.currentTarget.classList.remove("drag-over")};
+window.handleDrop=function(e){
+  e.preventDefault();
+  e.currentTarget.classList.remove("drag-over");
+  const targetId=e.currentTarget.dataset.moduleId;
+  if(!_draggedModule||_draggedModule===targetId)return;
+  const fromIdx=DATA.modules.findIndex(m=>m.id===_draggedModule);
+  const toIdx=DATA.modules.findIndex(m=>m.id===targetId);
+  if(fromIdx<0||toIdx<0)return;
+  const[moved]=DATA.modules.splice(fromIdx,1);
+  DATA.modules.splice(toIdx,0,moved);
+  saveData();
+  _draggedModule=null;
+  render();
+};
+
+// ══════════════════════════════════════════
+// RENDER CONTENT
+// ══════════════════════════════════════════
+function renderContent(){
+  const area=document.getElementById("contentArea");
+  const SL={ouvert:"Ouvert",encours:"En cours",planifie:"Planifié",termine:"Terminé",attente:"En attente"};
+  const fTeam=fil(DATA.team),fInc=fil(DATA.incidents),fVis=fil(DATA.visits),fTk=fil(DATA.tickets);
+
+  if(activeTab==="today"){
+    const todayStr=new Date().toISOString().split("T")[0];
+    const arretsActifs=DATA.arrets.filter(arretActif);
+    const remindersToday=(DATA.reminders||[]).filter(r=>!r.done&&r.datetime&&r.datetime.split("T")[0]<=todayStr).sort((a,b)=>new Date(a.datetime)-new Date(b.datetime));
+    const urgentTickets=DATA.tickets.filter(t=>t.status!=="termine"&&(t.priority==="urgente"||t.priority==="haute"));
+    const oldTk=DATA.tickets.filter(t=>t.status!=="termine"&&ticketAge(t.dateCreated)>=30).sort((a,b)=>ticketAge(b.dateCreated)-ticketAge(a.dateCreated));
+    const visitsToday=(DATA.visits||[]).filter(v=>v.date&&v.date.split("T")[0]===todayStr&&!v.done);
+    const calToday=(DATA.calEvents||[]).filter(e=>e.date===todayStr);
+    const avisARafraichir=DATA.clubs.filter(c=>needsAvisRefresh(c.name));
+    const agentsPresentTotal=DATA.team.filter(t=>getAgentStatus(t.id)==="présent").length;
+    const now=new Date();
+    const heureStr=now.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
+    const jourStr=now.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"});
+
+    const section=(icon,title,count,color,html)=>`<div class="panel" style="border-left:4px solid ${color};margin-bottom:14px"><div class="panel-header"><span class="panel-title">${icon} ${title}</span>${count!==null?`<span class="badge" style="background:${color}22;color:${color}">${count}</span>`:''}</div>${html}</div>`;
+
+    let html=`<div style="background:var(--c-primary-dark);border-radius:14px;padding:20px 24px;margin-bottom:18px;color:#fff"><div style="font-size:13px;opacity:.7;text-transform:capitalize">${jourStr} · ${heureStr}</div><div style="font-size:22px;font-weight:700;margin-top:4px">Bonjour Laurent 👋</div><div style="font-size:13px;opacity:.8;margin-top:4px">${agentsPresentTotal}/${DATA.team.length} agents présents · ${urgentTickets.length} ticket${urgentTickets.length>1?'s':''} prioritaire${urgentTickets.length>1?'s':''} · ${arretsActifs.length} en arrêt</div></div>`;
+
+    if(remindersToday.length>0){
+      html+=section("⏰","Rappels du jour",remindersToday.length,"#DC2626",remindersToday.map(r=>{const overdue=new Date(r.datetime)<now;return `<div class="panel-row"><div class="row-left"><div class="dot" style="background:${overdue?'#DC2626':'#F59E0B'}"></div><div><div class="row-name">${r.title}</div><div class="row-sub">${fmtDate(r.datetime)}${r.club!=="Tous"?' · '+r.club:''}</div></div></div><button class="btn-success" onclick="toggleReminderDone(${r.id})">✓ Fait</button></div>`}).join(""));
+    } else {
+      html+=section("⏰","Rappels du jour",0,"#16A34A",`<div class="empty-state" style="padding:16px;color:#16A34A">✓ Aucun rappel en attente</div>`);
+    }
+
+    if(urgentTickets.length>0){
+      html+=section("🎫","Tickets prioritaires",urgentTickets.length,"#EA580C",urgentTickets.slice(0,6).map(t=>`<div class="panel-row"><div class="row-left"><div><div class="row-name">${t.title}</div><div class="row-sub">${t.club} · ${t.salle||'—'}</div></div></div><span class="badge-sm prio-${t.priority}">${t.priority}</span></div>`).join(""));
+    }
+
+    if(arretsActifs.length>0){
+      html+=section("🏥","Agents en arrêt",arretsActifs.length,"#8B5CF6",arretsActifs.map(a=>`<div class="panel-row"><div class="row-left"><div><div class="row-name">${getAgentName(a.agentId)} ${a.type==="maladie"?'🏥':'⚠'}</div><div class="row-sub">${getAgentClub(a.agentId)}${a.dateFin?' · jusqu\'au '+fmtDateShort(a.dateFin):''}</div></div></div></div>`).join(""));
+    }
+
+    if(visitsToday.length>0||calToday.length>0){
+      const items=[...visitsToday.map(v=>`<div class="panel-row"><div class="row-left"><div class="dot" style="background:#FE7F00"></div><div><div class="row-name">Visite · ${v.club}</div><div class="row-sub">${v.type}${v.heureArrivee?' · '+v.heureArrivee:''}</div></div></div></div>`),...calToday.map(e=>`<div class="panel-row"><div class="row-left"><div class="dot" style="background:#3B82F6"></div><div><div class="row-name">${e.title||e.type||'Événement'}</div><div class="row-sub">${e.club||''}</div></div></div></div>`)].join("");
+      html+=section("📆","Programme du jour",visitsToday.length+calToday.length,"#3B82F6",items);
+    }
+
+    if(oldTk.length>0){
+      html+=section("🔴","Tickets anciens à relancer",oldTk.length,"#DC2626",oldTk.slice(0,5).map(t=>`<div class="panel-row"><div class="row-left"><div><div class="row-name">${t.title}</div><div class="row-sub">${t.club} · ${ticketAgeLabel(ticketAge(t.dateCreated))}</div></div></div></div>`).join("")+(oldTk.length>5?`<div style="padding:10px 20px"><button class="btn-secondary" onclick="activeTab='followups';render()">Voir les ${oldTk.length} relances</button></div>`:''));
+    }
+
+    if(avisARafraichir.length>0){
+      html+=section("⭐","Avis Google à vérifier",avisARafraichir.length,"#F59E0B",`<div style="padding:12px 20px;font-size:13px;color:#6B7280">${avisARafraichir.map(c=>c.name).join(", ")}</div>`);
+    }
+
+    if(remindersToday.length===0&&urgentTickets.length===0&&arretsActifs.length===0&&visitsToday.length===0&&calToday.length===0&&oldTk.length===0){
+      html+=`<div class="panel" style="padding:40px;text-align:center;color:#16A34A"><div style="font-size:36px;margin-bottom:10px">✓</div><div style="font-weight:600">Rien d'urgent aujourd'hui</div></div>`;
+    }
+
+    area.innerHTML=html;
+  }
+
+  else if(activeTab==="dashboard"){
+    const arretsActifs=DATA.arrets.filter(a=>{if(selectedClub!=="all"&&getAgentClub(a.agentId)!==selectedClub)return false;return arretActif(a)});
+    let banner="";
+    if(arretsActifs.length>0){
+      banner=`<div class="absence-banner"><strong>⚠ ${arretsActifs.length} agent${arretsActifs.length>1?'s':''} en arrêt en cours</strong>${arretsActifs.map(a=>`${getAgentName(a.agentId)} (${a.type==="maladie"?'🏥 Maladie':'⚠ AT'})`).join(' · ')}</div>`;
+    }
+    // Rappels urgents
+    const urgentRem=(DATA.reminders||[]).filter(r=>!r.done&&r.priority==="urgent");
+    let reminderBanner="";
+    if(urgentRem.length>0){
+      reminderBanner=`<div class="panel" style="border-left:4px solid #DC2626;margin-bottom:16px"><div class="panel-header"><span class="panel-title">🚨 Rappels urgents (${urgentRem.length})</span><button class="btn-secondary" onclick="activeTab='reminders';render()">Voir tous</button></div>
+      <div style="overflow-x:auto"><table class="data-table"><thead><tr><th>Rappel</th><th>Échéance</th><th>Club</th><th>Action</th></tr></thead><tbody>
+      ${urgentRem.sort((a,b)=>new Date(a.datetime)-new Date(b.datetime)).map(r=>{
+        const overdue=new Date(r.datetime)<=new Date();
+        return `<tr style="${overdue?'background:#FEF2F2':''}"><td><strong>${r.title}</strong>${overdue?' <span style="color:#DC2626;font-size:10px;font-weight:700">ÉCHU</span>':''}</td><td>${fmtDate(r.datetime)}</td><td>${r.club}</td><td><button class="btn-success" onclick="toggleReminderDone(${r.id})">✓ Fait</button></td></tr>`;
+      }).join("")}
+      </tbody></table></div></div>`;
+    }
+    // Render modules in order
+    const modulesHtml=DATA.modules.filter(m=>m.visible).map(m=>renderModule(m.id,fTeam,fTk)).join("");
+    const hintDrag=`<div style="background:#FFF7ED;border:1px dashed #FDBA74;color:#9A3412;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:12px;display:flex;align-items:center;gap:8px">💡 <strong>Astuce :</strong> Glisse-déposez les modules (poignée ⋮⋮ en haut à droite) pour réorganiser le tableau. Configure l'affichage dans l'onglet <strong>Configuration</strong>.</div>`;
+    // Old tickets banner
+    const oldTickets=DATA.tickets.filter(t=>t.status!=="termine"&&ticketAge(t.dateCreated)>=30);
+    let oldTicketsBanner="";
+    if(oldTickets.length>0){
+      const critical=oldTickets.filter(t=>ticketAge(t.dateCreated)>=60);
+      oldTicketsBanner=`<div class="panel" style="border-left:4px solid ${critical.length>0?'#DC2626':'#F59E0B'};margin-bottom:16px"><div class="panel-header"><span class="panel-title">${critical.length>0?'🔴':'🟠'} Tickets anciens à traiter (${oldTickets.length})</span><button class="btn-secondary" onclick="activeTab='followups';render()">Voir relances</button> <button class="btn-secondary" onclick="exportTicketsExcel()">📊 Export Excel</button></div>
+      <div style="overflow-x:auto"><table class="data-table"><thead><tr><th>N°</th><th>Problème</th><th>Club</th><th>Salle</th><th>Ancienneté</th><th>Priorité</th></tr></thead><tbody>
+      ${oldTickets.sort((a,b)=>ticketAge(b.dateCreated)-ticketAge(a.dateCreated)).slice(0,5).map(t=>{const age=ticketAge(t.dateCreated);return `<tr style="${age>=60?'background:#FEF2F2':''}"><td><span class="ticket-number">${t.number}</span></td><td><strong>${t.title}</strong></td><td>${t.club}</td><td>${t.salle||'—'}</td><td><strong style="color:${age>=60?'#DC2626':'#F59E0B'}">${ticketAgeLabel(age)}</strong></td><td><span class="badge-sm prio-${t.priority}">${t.priority}</span></td></tr>`}).join("")}
+      </tbody></table></div></div>`;
+    }
+    // Avis refresh needed banner
+    const clubsNeedRefresh=DATA.clubs.filter(c=>needsAvisRefresh(c.name));
+    let avisBanner="";
+    if(clubsNeedRefresh.length>0&&(DATA.avisGoogle||[]).length>0){
+      avisBanner=`<div style="background:#FFF7ED;border:1px solid #FDBA74;border-radius:8px;padding:10px 16px;margin-bottom:14px;font-size:12px;color:#9A3412;display:flex;align-items:center;gap:8px;flex-wrap:wrap">⭐ <strong>${clubsNeedRefresh.length} club${clubsNeedRefresh.length>1?'s':''}</strong> à mettre à jour (avis Google >7j) : ${clubsNeedRefresh.map(c=>c.name).join(', ')} <button class="btn-secondary" style="font-size:11px;margin-left:auto" onclick="activeTab='avis';render()">Voir avis</button></div>`;
+    }
+    area.innerHTML=`${banner}${reminderBanner}${oldTicketsBanner}${avisBanner}${hintDrag}${modulesHtml}<div style="text-align:center;padding:16px;color:#D1D5DB;font-size:11px">Dernière actualisation : ${new Date().toLocaleTimeString("fr-FR")}</div>`;
+  }
+
+  else if(activeTab==="overview"){
+    // Inject Google ratings into club display
+
+    area.innerHTML=`<div class="stats-grid">${[
+      {l:"Clubs",v:DATA.clubs.length,c:"#3B82F6"},{l:"Agents",v:DATA.team.length,c:"#16A34A"},
+      {l:"En arrêt",v:agentsEnArret().length,c:"#DC2626"},
+      {l:"Tickets actifs",v:DATA.tickets.filter(t=>t.status!=="termine").length,c:"#8B5CF6"},
+    ].map(x=>`<div class="stat-card"><div class="stat-label">${x.l}</div><div class="stat-value" style="color:${x.c}">${x.v}</div></div>`).join("")}</div>
+    <div class="panel"><div class="panel-header"><span class="panel-title">État des clubs</span><button class="btn-secondary" onclick="refreshTravelTimes()" id="btnRefreshTravel">🕐 Actualiser temps de trajet</button></div>
+    ${DATA.clubs.map(c=>{const b=clubBadge(c.status);const ctk=DATA.tickets.filter(t=>t.club===c.name&&t.status!=="termine").length;const ca=DATA.arrets.filter(a=>getAgentClub(a.agentId)===c.name&&arretActif(a)).length;return `<div class="panel-row"><div><div class="row-name">${c.name} <span class="club-code">${c.code}</span></div><div class="row-sub">${c.fullName}${c.isHome?" 🏠":""} · ${c.agents} agents · ⭐ ${c.googleRating||"?"}/5 (${c.googleCount||0} avis)${ca>0?` · ${ca} en arrêt`:''} · ${ctk} ticket${ctk>1?'s':''}</div><div class="row-sub" id="travelTime-${c.id}" style="margin-top:3px;font-weight:600;color:#0D9488">${_travelTimes[c.id]?('🚗 '+_travelTimes[c.id]+' de route'):''}</div></div><div class="row-right"><span class="badge" style="background:${b.bg};color:${b.text}">${b.label}</span><button class="btn-secondary" onclick="window.open(wazeUrl(${c.lat},${c.lng}),'_blank')" title="Ouvrir dans Waze">🚗 Waze</button><button class="btn-secondary" onclick="editClub(${c.id})">Modifier</button></div></div>`}).join("")}</div>`;
+  }
+
+  else if(activeTab==="team"){
+    const team=fil(DATA.team),sorted=sortTeam(team,teamSort);
+    const sortBtns=`<div class="sort-group"><span style="font-size:11px;color:#9CA3AF;margin-right:4px;align-self:center">Trier:</span><button class="sort-btn ${teamSort==='salle'?'active':''}" onclick="teamSort='salle';render()">Par salle</button><button class="sort-btn ${teamSort==='rank'?'active':''}" onclick="teamSort='rank';render()">Par rang</button><button class="sort-btn ${teamSort==='name'?'active':''}" onclick="teamSort='name';render()">Par nom</button><button class="sort-btn ${teamSort==='color'?'active':''}" onclick="teamSort='color';render()">Par couleur</button></div>`;
+    let content="";
+    if(teamSort==="salle"){const salles={};DATA.salles.forEach(s=>salles[s]=[]);sorted.forEach(t=>{if(!salles[t.salle])salles[t.salle]=[];salles[t.salle].push(t)});for(const[salle,agents] of Object.entries(salles)){if(agents.length===0&&selectedClub!=="all")continue;content+=`<div><div class="salle-header"><span>${salle}</span><span class="salle-count">${agents.length}</span></div>${agents.length===0?'<div style="padding:12px 20px;color:#D1D5DB;font-size:13px;font-style:italic">Aucun agent</div>':agents.map(t=>renderAgentRow(t)).join("")}</div>`}}else{content=sorted.map(t=>renderAgentRow(t)).join("")}
+    area.innerHTML=`<div class="panel"><div class="panel-header" style="flex-wrap:wrap;gap:10px"><span class="panel-title">Équipe · ${team.length} agents</span><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${sortBtns}<button class="btn-secondary" onclick="manageSalles()">Gérer salles</button><button class="btn-secondary" onclick="importWorkdayAgentsModal()">📋 Import Workday</button><button class="btn-add" onclick="addAgentForm()">+ Ajouter</button></div></div>${team.length===0?'<div class="empty-state"><div class="empty-state-icon">◇</div><div>Aucun agent</div></div>':content}</div>`;
+  }
+
+  // ═══ ARRÊTS MALADIE & AT ═══
+  else if(activeTab==="arrets"){
+    const filterArrets=DATA.arrets.filter(a=>selectedClub==="all"||getAgentClub(a.agentId)===selectedClub);
+    const actifs=filterArrets.filter(arretActif);
+    const maladies=actifs.filter(a=>a.type==="maladie");
+    const ATs=actifs.filter(a=>a.type==="AT");
+    const termines=filterArrets.filter(a=>!arretActif(a));
+
+    area.innerHTML=`
+      <div class="stats-grid">
+        <div class="stat-card" style="border-left:4px solid #8B5CF6"><div class="stat-label">🏥 Maladie en cours</div><div class="stat-value" style="color:#8B5CF6">${maladies.length}</div><div class="stat-sub">${maladies.reduce((s,a)=>s+daysBetween(a.dateDebut,a.dateFin||new Date().toISOString().split("T")[0]),0)}j cumulés</div></div>
+        <div class="stat-card" style="border-left:4px solid #EC4899"><div class="stat-label">⚠ AT en cours</div><div class="stat-value" style="color:#EC4899">${ATs.length}</div><div class="stat-sub">${ATs.reduce((s,a)=>s+daysBetween(a.dateDebut,a.dateFin||new Date().toISOString().split("T")[0]),0)}j cumulés</div></div>
+        <div class="stat-card"><div class="stat-label">Total historique</div><div class="stat-value">${filterArrets.length}</div><div class="stat-sub">${termines.length} clôturés</div></div>
+        <div class="stat-card"><div class="stat-label">Agents concernés</div><div class="stat-value" style="color:#F59E0B">${new Set(actifs.map(a=>a.agentId)).size}</div></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">🏥 Arrêts maladie en cours</span><button class="btn-maladie" onclick="addArretForm('maladie')">+ Nouveau arrêt maladie</button></div>
+        ${maladies.length===0?'<div class="empty-state" style="padding:20px;color:#16A34A">✓ Aucun arrêt maladie en cours</div>':maladies.map(a=>{const n=daysBetween(a.dateDebut,a.dateFin||new Date().toISOString().split("T")[0]);return `<div class="arret-card maladie"><div style="flex:1;min-width:0"><div class="row-name">${getAgentName(a.agentId)} 🏥</div><div class="row-sub">${getAgentClub(a.agentId)}${a.note?' · '+a.note:''}</div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><div class="arret-dates"><span class="arret-date-box">${fmtDateShort(a.dateDebut)}</span>→<span class="arret-date-box">${a.dateFin?fmtDateShort(a.dateFin):'?'}</span></div><span class="arret-duree">${n}j</span><button class="btn-secondary" onclick="editArret(${a.id})">Modifier</button><button class="btn-danger" onclick="deleteArret(${a.id})">✕</button></div></div>`}).join("")}
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">⚠ Accidents du travail (AT) en cours</span><button class="btn-at" onclick="addArretForm('AT')">+ Nouveau AT</button></div>
+        ${ATs.length===0?'<div class="empty-state" style="padding:20px;color:#16A34A">✓ Aucun AT en cours</div>':ATs.map(a=>{const n=daysBetween(a.dateDebut,a.dateFin||new Date().toISOString().split("T")[0]);return `<div class="arret-card AT"><div style="flex:1;min-width:0"><div class="row-name">${getAgentName(a.agentId)} ⚠</div><div class="row-sub">${getAgentClub(a.agentId)}${a.note?' · '+a.note:''}</div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><div class="arret-dates"><span class="arret-date-box">${fmtDateShort(a.dateDebut)}</span>→<span class="arret-date-box">${a.dateFin?fmtDateShort(a.dateFin):'?'}</span></div><span class="arret-duree">${n}j</span><button class="btn-secondary" onclick="editArret(${a.id})">Modifier</button><button class="btn-danger" onclick="deleteArret(${a.id})">✕</button></div></div>`}).join("")}
+      </div>
+
+      ${termines.length>0?`<div class="panel">
+        <div class="panel-header"><span class="panel-title">📋 Historique (arrêts clôturés)</span><span class="badge" style="background:#F3F4F6;color:#6B7280">${termines.length}</span></div>
+        <div style="overflow-x:auto"><table class="data-table">
+          <thead><tr><th>Agent</th><th>Club</th><th>Type</th><th>Début</th><th>Fin</th><th>Durée</th><th>Note</th><th></th></tr></thead>
+          <tbody>${termines.sort((a,b)=>new Date(b.dateFin||b.dateDebut)-new Date(a.dateFin||a.dateDebut)).map(a=>{const n=daysBetween(a.dateDebut,a.dateFin);return `<tr><td><strong>${getAgentName(a.agentId)}</strong></td><td>${getAgentClub(a.agentId)}</td><td><span class="badge-sm" style="background:${a.type==='maladie'?'#E9D5FF':'#FCE7F3'};color:${a.type==='maladie'?'#6B21A8':'#9D174D'}">${a.type==='maladie'?'🏥 Maladie':'⚠ AT'}</span></td><td>${fmtDateShort(a.dateDebut)}</td><td>${fmtDateShort(a.dateFin)}</td><td><strong>${n}j</strong></td><td style="color:#6B7280">${a.note||'—'}</td><td><button class="btn-danger" onclick="deleteArret(${a.id})">✕</button></td></tr>`}).join("")}</tbody>
+        </table></div>
+      </div>`:''}`;
+  }
+
+  else if(activeTab==="visits"){
+    const v=fil(DATA.visits);
+    const sortedV=[...v].sort((a,b)=>{if(a.done!==b.done)return a.done?1:-1;return new Date(b.date)-new Date(a.date)});
+    area.innerHTML=`<div class="panel"><div class="panel-header"><span class="panel-title">Planning des visites</span><button class="btn-add" onclick="addVisitForm()">+ Ajouter</button></div>${v.length===0?'<div class="empty-state"><div class="empty-state-icon">◈</div><div>Aucune visite</div></div>':sortedV.map(x=>{
+      const horaires=x.heureArrivee||x.heureSortie?`<div style="font-size:12px;color:#6B7280;margin-top:3px"><span style="font-weight:600;color:#16A34A">→ ${x.heureArrivee||'—'}</span> · <span style="font-weight:600;color:#DC2626">← ${x.heureSortie||'—'}</span></div>`:'';
+      const duree=(x.heureArrivee&&x.heureSortie)?(()=>{const[h1,m1]=x.heureArrivee.split(":").map(Number),[h2,m2]=x.heureSortie.split(":").map(Number);const min=(h2*60+m2)-(h1*60+m1);if(min<=0)return"";return `<span style="font-size:10px;background:#F0F0F3;color:#6B7280;padding:2px 6px;border-radius:10px;margin-left:6px">${Math.floor(min/60)}h${String(min%60).padStart(2,"0")}</span>`})():"";
+      return `<div class="panel-row" style="opacity:${x.done?.7:1}"><div class="row-left"><div class="dot" style="background:${x.done?'#16A34A':'#FE7F00'}"></div><div><div class="row-name">${x.club} <span class="club-code">${getClubCode(x.club)}</span> ${duree}</div><div class="row-sub">${x.type}</div>${horaires}</div></div><div class="row-right"><div style="text-align:right"><div style="font-size:13px;font-weight:500">${fmtDate(x.date)}</div><div style="font-size:11px;color:${x.done?'#16A34A':'#9CA3AF'};margin-top:2px">${x.done?'✓ Effectuée':'À venir'}</div></div>${!x.done?`<button class="btn-success" onclick="markVisitDone(${x.id})">✓</button>`:''}<button class="btn-secondary" onclick="editVisit(${x.id})">Modifier</button><button class="btn-danger" onclick="deleteVisit(${x.id})">✕</button></div></div>`;
+    }).join("")}</div>`;
+  }
+
+  else if(activeTab==="incidents"){
+    const inc=fil(DATA.incidents);
+    area.innerHTML=`<div class="panel"><div class="panel-header"><span class="panel-title">Incidents</span><button class="btn-add" onclick="addIncidentForm()">+ Ajouter</button></div>${inc.length===0?'<div class="empty-state"><div class="empty-state-icon">◆</div><div>Aucun incident</div></div>':inc.map(x=>{const sc=sevColor(x.severity);return `<div class="panel-row"><div class="row-left"><div class="dot-sm" style="background:${sc.dot}"></div><div><div class="row-name">${x.type}</div><div class="row-sub">${x.club}${x.agent!=='—'?' · '+x.agent:''} · ${fmtDate(x.date)}</div></div></div><div class="row-right"><span class="badge-sm" style="background:${sc.bg};color:${sc.text}">${x.severity}</span><span class="badge-sm" style="background:${x.resolved?'#D1FAE5':'#FEF3C7'};color:${x.resolved?'#065F46':'#92400E'}">${x.resolved?'Résolu':'En cours'}</span>${!x.resolved?`<button class="btn-success" onclick="resolveIncident(${x.id})">✓</button>`:''}<button class="btn-danger" onclick="deleteIncident(${x.id})">✕</button></div></div>`}).join("")}</div>`;
+  }
+
+  // ═══ MODULE TICKETS — Vue par salle, tri par date/ancienneté ═══
+  else if(activeTab==="moduleTickets"){
+    if(!DATA.importHistory)DATA.importHistory=[];
+    const allTk=fil(DATA.tickets);
+    const clubs=DATA.clubs.filter(c=>selectedClub==="all"||c.name===selectedClub);
+    const now=new Date();
+
+    // Stats globales
+    const totalTk=allTk.length;
+    const activeTk=allTk.filter(t=>t.status!=="termine").length;
+    const urgentTk=allTk.filter(t=>(t.priority==="urgente"||t.priority==="haute")&&t.status!=="termine").length;
+    const oldTk=allTk.filter(t=>{const d=daysBetween(t.dateCreated,new Date().toISOString().split("T")[0]);return d>30&&t.status!=="termine"}).length;
+
+    // Sort mode
+    const sortMode=_ticketSortMode||"date";
+
+    area.innerHTML=`
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+        <div class="section-title">🎫 Module Tickets <span>Vue par salle · Tri par ${sortMode==="date"?"date":"ancienneté"}</span></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn-export" onclick="exportTicketsExcel()" title="Export Excel par salle">📊 Excel</button>
+          <button class="btn-export" onclick="_ticketSortMode='date';render()">📅 Par date</button>
+          <button class="btn-export" onclick="_ticketSortMode='age';render()">⏳ Par ancienneté</button>
+          <button class="btn-export" onclick="_ticketSortMode='priority';render()">🔴 Par priorité</button>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-label">Total tickets</div><div class="stat-value">${totalTk}</div></div>
+        <div class="stat-card"><div class="stat-label">Actifs</div><div class="stat-value" style="color:#0D9488">${activeTk}</div></div>
+        <div class="stat-card"><div class="stat-label">Urgents/Hauts</div><div class="stat-value" style="color:#DC2626">${urgentTk}</div></div>
+        <div class="stat-card"><div class="stat-label">&gt; 30 jours</div><div class="stat-value" style="color:#9333EA">${oldTk}</div></div>
+      </div>
+
+      ${clubs.map((c,_ci)=>{
+        const cIdx=DATA.clubs.findIndex(_x=>_x.name===c.name);
+        const clubTk=DATA.tickets.filter(t=>t.club===c.name);
+        const clubActive=clubTk.filter(t=>t.status!=="termine");
+        const clubTermine=clubTk.filter(t=>t.status==="termine");
+        const lastImport=(DATA.importHistory||[]).filter(h=>h.club===c.name&&h.type==="tickets").sort((a,b)=>new Date(b.date)-new Date(a.date))[0];
+
+        // Sort tickets
+        let sorted=[...clubActive];
+        if(sortMode==="date") sorted.sort((a,b)=>new Date(b.dateCreated)-new Date(a.dateCreated));
+        else if(sortMode==="age") sorted.sort((a,b)=>new Date(a.dateCreated)-new Date(b.dateCreated));
+        else if(sortMode==="priority"){const p={urgente:0,haute:1,normale:2,basse:3};sorted.sort((a,b)=>(p[a.priority]||2)-(p[b.priority]||2))}
+
+        return `<div class="panel" style="border-left:3px solid #0D9488">
+          <div class="panel-header">
+            <div>
+              <span class="panel-title">🏢 ${c.name}</span>
+              <span class="club-code">${c.code}</span>
+              <span style="font-size:12px;color:#6B7280;margin-left:8px">${clubActive.length} actif${clubActive.length>1?'s':''} · ${clubTermine.length} terminé${clubTermine.length>1?'s':''}</span>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+              ${lastImport?`<span style="font-size:10px;color:#9CA3AF;background:#F3F4F6;padding:3px 8px;border-radius:6px">📥 ${fmtDateShort(lastImport.date)} · ${lastImport.count} tickets</span>`:''}
+              <button class="btn-add" style="font-size:11px;padding:5px 12px" onclick="startClubImport(${cIdx})">📂 Importer</button>
+              <button class="btn-secondary" style="font-size:11px;padding:5px 12px" onclick="addTicketForm(DATA.clubs[${cIdx}].name)">+ Ticket</button>
+            </div>
+          </div>
+          ${clubActive.length===0&&clubTermine.length===0?`<div class="empty-state"><div class="empty-state-icon">🎫</div><div>Aucun ticket — <a href="#" onclick="startClubImport(${cIdx});return false" style="color:#FE7F00">Importer un Excel</a></div></div>`:`
+          <div style="overflow-x:auto">
+            <table class="data-table">
+              <thead><tr>
+                <th style="width:60px">N°</th>
+                <th>Problème</th>
+                <th>Intervenant</th>
+                <th style="width:80px">Priorité</th>
+                <th style="width:80px">Statut</th>
+                <th style="width:90px">Date</th>
+                <th style="width:70px">Âge</th>
+                <th style="width:100px">Actions</th>
+              </tr></thead>
+              <tbody>
+                ${sorted.map(t=>{
+                  const age=daysBetween(t.dateCreated,new Date().toISOString().split("T")[0]);
+                  const ageColor=age>90?'#DC2626':age>60?'#EA580C':age>30?'#D97706':'#6B7280';
+                  const ageBg=age>90?'#FEF2F2':age>60?'#FFF7ED':age>30?'#FFFBEB':'transparent';
+                  return `<tr style="background:${ageBg}">
+                    <td><span class="ticket-number" style="font-size:11px">${t.number}</span></td>
+                    <td style="font-weight:500">${t.title}${t.salle?` <span style="font-size:10px;color:#9CA3AF">(${t.salle})</span>`:''}</td>
+                    <td style="font-size:12px">${t.intervenant||'—'}</td>
+                    <td><span class="badge-sm prio-${t.priority}" style="font-size:10px">${t.priority}</span></td>
+                    <td><span class="badge-sm ticket-${t.status}" style="font-size:10px">${SL[t.status]||t.status}</span></td>
+                    <td style="font-size:11px;color:#6B7280">${fmtDateShort(t.dateCreated)}</td>
+                    <td style="font-weight:600;color:${ageColor};font-size:12px">${age}j</td>
+                    <td style="font-size:10px">
+                      <div style="display:flex;gap:3px;flex-wrap:wrap">
+                        <button class="btn-secondary" style="font-size:10px;padding:2px 6px" onclick="editTicket(${t.id})">✏</button>
+                        <button class="btn-secondary" style="font-size:10px;padding:2px 6px" onclick="changeTicketStatus(${t.id})">🔄</button>
+                        ${(t.priority==='urgente'||t.priority==='haute')?`<button class="btn-add" style="font-size:10px;padding:2px 6px" onclick="addFollowupForm(${t.id})">📞</button>`:''}
+                        <button class="btn-danger" style="font-size:10px;padding:2px 6px" onclick="deleteTicket(${t.id})">✕</button>
+                      </div>
+                    </td>
+                  </tr>`;
+                }).join("")}
+                ${clubTermine.length>0?`<tr onclick="document.getElementById('done_${c.name.replace(/[^a-zA-Z0-9]/g,"")}').style.display=document.getElementById('done_${c.name.replace(/[^a-zA-Z0-9]/g,"")}').style.display==='none'?'':'none'" style="cursor:pointer;background:#F0FDF4"><td colspan="8" style="text-align:center;color:#16A34A;font-size:12px;font-weight:500">✅ ${clubTermine.length} ticket${clubTermine.length>1?'s':''} terminé${clubTermine.length>1?'s':''} — cliquer pour afficher</td></tr>`:''}
+              </tbody>
+              <tbody id="done_${c.name.replace(/[^a-zA-Z0-9]/g,"")}" style="display:none">
+                ${clubTermine.sort((a,b)=>new Date(b.dateCreated)-new Date(a.dateCreated)).map(t=>`<tr style="opacity:0.6;background:#F9FAFB">
+                  <td><span class="ticket-number" style="font-size:11px">${t.number}</span></td>
+                  <td>${t.title}</td><td style="font-size:12px">${t.intervenant||'—'}</td>
+                  <td><span class="badge-sm prio-${t.priority}" style="font-size:10px">${t.priority}</span></td>
+                  <td><span class="badge-sm ticket-termine" style="font-size:10px">✅ Terminé</span></td>
+                  <td style="font-size:11px;color:#6B7280">${fmtDateShort(t.dateCreated)}</td>
+                  <td style="font-size:12px;color:#6B7280">${daysBetween(t.dateCreated,new Date().toISOString().split("T")[0])}j</td>
+                  <td><button class="btn-danger" style="font-size:10px;padding:2px 6px" onclick="deleteTicket(${t.id})">✕</button></td>
+                </tr>`).join("")}
+              </tbody>
+            </table>
+          </div>`}
+        </div>`;
+      }).join("")}
+    `;
+  }
+
+    else if(activeTab==="tickets"){
+    const tk=fil(DATA.tickets);
+    const sortedTk=[...tk].sort((a,b)=>{if(a.status==="termine"&&b.status!=="termine")return 1;if(b.status==="termine"&&a.status!=="termine")return -1;const p={urgente:0,haute:1,normale:2,basse:3};return p[a.priority]-p[b.priority]});
+    area.innerHTML=`<div class="panel"><div class="panel-header"><span class="panel-title">Tickets Travaux · ${tk.length}</span><button class="btn-add" onclick="addTicketForm()">+ Nouveau</button></div>${tk.length===0?'<div class="empty-state"><div class="empty-state-icon">⚙</div><div>Aucun ticket</div></div>':sortedTk.map(t=>`<div class="ticket-card"><div class="ticket-top"><div style="min-width:0;flex:1"><span class="ticket-number">${t.number}</span>${t.ref?` <span class="ticket-ref">${t.ref}</span>`:''}<div class="ticket-title">${t.title}</div></div><div style="display:flex;gap:6px;align-items:center;flex-shrink:0;flex-wrap:wrap"><span class="badge-sm prio-${t.priority}">${t.priority}</span><span class="badge-sm ticket-${t.status}">${SL[t.status]||t.status}</span></div></div><div class="ticket-meta"><div class="ticket-meta-item"><span class="ticket-meta-label">Club:</span> ${t.club} <span class="club-code">${getClubCode(t.club)}</span></div><div class="ticket-meta-item"><span class="ticket-meta-label">Salle:</span> ${t.salle||'—'}</div><div class="ticket-meta-item"><span class="ticket-meta-label">Intervenant:</span> ${t.intervenant||'—'}</div><div class="ticket-meta-item"><span class="ticket-meta-label">Créé:</span> ${fmtDate(t.dateCreated)}</div></div>${t.description?`<div class="ticket-desc">${t.description}</div>`:''}<div class="ticket-actions"><button class="btn-secondary" onclick="editTicket(${t.id})">Modifier</button><button class="btn-secondary" onclick="changeTicketStatus(${t.id})">Changer statut</button>${(t.priority==='urgente'||t.priority==='haute')&&t.status!=='termine'?`<button class="btn-add" style="font-size:11px;padding:4px 12px" onclick="addFollowupForm(${t.id})">🔄 Relancer</button>`:''}<button class="btn-danger" onclick="deleteTicket(${t.id})">Supprimer</button></div></div>`).join("")}</div>`;
+  }
+
+  // ═══ CONFIG (réorganisation modules) ═══
+  else if(activeTab==="reminders"){
+    if(!DATA.reminders)DATA.reminders=[];
+    const pending=(DATA.reminders).filter(r=>!r.done).sort((a,b)=>new Date(a.datetime)-new Date(b.datetime));
+    const done=(DATA.reminders).filter(r=>r.done);
+    const now=new Date();
+    area.innerHTML=`
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+        <div class="section-title">⏰ Rappels & Alertes</div>
+        <div class="save-indicator" id="saveIndicator" style="background:rgba(22,163,74,.12);color:#16A34A">✓ Sauvegardé</div>
+      </div>
+      <div class="panel" style="border-left:3px solid #0D9488">
+        <div class="panel-header"><span class="panel-title">Créer un rappel</span></div>
+        <div style="padding:16px 20px">
+          <div class="reminder-grid">
+            <div class="form-group"><label class="form-label">Titre du rappel *</label><input class="form-input" id="r_title" placeholder="Ex: Relancer nettoyage verrières"></div>
+            <div class="form-group"><label class="form-label">Club</label><select class="form-select" id="r_club"><option value="Tous">Tous les clubs</option>${clubOpts()}</select></div>
+          </div>
+          <div class="reminder-grid" style="margin-top:10px">
+            <div class="form-group"><label class="form-label">Date *</label><input class="form-input" type="date" id="r_date"></div>
+            <div class="form-group"><label class="form-label">Heure</label><input class="form-input" type="time" id="r_time" value="09:00"></div>
+          </div>
+          <div class="reminder-grid" style="margin-top:10px">
+            <div class="form-group"><label class="form-label">Priorité</label><select class="form-select" id="r_prio"><option value="normale">Normale</option><option value="haute">Haute</option><option value="urgent">🚨 Urgent</option></select></div>
+            <div class="form-group" style="display:flex;align-items:end"><button class="btn-add" onclick="submitReminder()">+ Ajouter le rappel</button></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Rappels en attente (${pending.length})</span></div>
+        ${pending.length===0?'<div class="empty-state" style="padding:20px;color:#16A34A">✓ Aucun rappel en attente</div>':
+        `<div style="overflow-x:auto"><table class="data-table"><thead><tr><th>Priorité</th><th>Rappel</th><th>Échéance</th><th>Club</th><th>Actions</th></tr></thead><tbody>
+        ${pending.map(r=>{
+          const overdue=new Date(r.datetime)<=now;
+          return `<tr style="${overdue?'background:#FEF2F2':''}">
+            <td><span class="badge-sm ${r.priority==='urgent'?'prio-urgente':r.priority==='haute'?'prio-haute':'prio-normale'}">${r.priority==='urgent'?'🚨 ':r.priority==='haute'?'⚠ ':''}${r.priority}</span></td>
+            <td><strong>${r.title}</strong>${overdue?' <span style="color:#DC2626;font-size:10px;font-weight:700">ÉCHU</span>':''}</td>
+            <td>${fmtDate(r.datetime)}</td><td>${r.club}</td>
+            <td><button class="btn-success" onclick="toggleReminderDone(${r.id})">✓ Fait</button> <button class="btn-danger" onclick="deleteReminder(${r.id})">✕</button></td>
+          </tr>`;
+        }).join("")}
+        </tbody></table></div>`}
+      </div>
+
+      ${done.length>0?`<div class="panel">
+        <div class="panel-header"><span class="panel-title">Terminés (${done.length})</span><button class="btn-danger" onclick="DATA.reminders=DATA.reminders.filter(r=>!r.done);logChange('Rappels terminés effacés');saveData();render()">Vider</button></div>
+        <div style="overflow-x:auto"><table class="data-table"><thead><tr><th>Rappel</th><th>Échéance</th><th>Club</th></tr></thead><tbody>
+        ${done.map(r=>`<tr style="opacity:.5"><td>${r.title}</td><td>${fmtDate(r.datetime)}</td><td>${r.club}</td></tr>`).join("")}
+        </tbody></table></div>
+      </div>`:''}
+    `;
+  }
+
+  // ═══ FOLLOWUPS - Relances tickets ═══
+  else if(activeTab==="followups"){
+    const urgentTk=DATA.tickets.filter(t=>(t.priority==="urgente"||t.priority==="haute")&&t.status!=="termine");
+    const overdue=getOverdueFollowups();
+    const allFollowups=(DATA.followups||[]).filter(f=>!f.done).sort((a,b)=>new Date(a.nextRelance||"2099")-new Date(b.nextRelance||"2099"));
+
+    area.innerHTML=`
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+        <div class="section-title">🔄 Relances tickets urgents <span>${overdue.length>0?'<span class="followup-count">'+overdue.length+' en retard</span>':''}</span></div>
+        <div class="save-indicator" id="saveIndicator" style="background:rgba(22,163,74,.12);color:#16A34A">✓ Sauvegardé</div>
+      </div>
+
+      ${overdue.length>0?`<div class="panel" style="border-left:4px solid #DC2626">
+        <div class="panel-header"><span class="panel-title">🚨 Relances en retard</span></div>
+        ${overdue.map(f=>{const t=DATA.tickets.find(x=>x.id===f.ticketId);return `<div class="followup-card overdue">
+          <div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:8px">
+            <div><span class="ticket-number">${t?t.number:''}</span> <strong>${t?t.title:''}</strong><div class="row-sub">${t?t.club:''} · ${t?t.salle:''} · Relance prévue: <strong style="color:#DC2626">${fmtDate(f.nextRelance)}</strong></div>
+            <div style="margin-top:4px;font-size:12px;color:#6B7280">Dernière action: ${f.action} ${f.contact?'('+f.contact+')':''}</div></div>
+            <div style="display:flex;gap:6px"><button class="btn-add" onclick="addFollowupForm(${f.ticketId})">Relancer</button><button class="btn-success" onclick="markFollowupDone(${f.id})">✓ Résolu</button></div>
+          </div>
+        </div>`}).join("")}
+      </div>`:''}
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Tickets urgents/hauts à suivre (${urgentTk.length})</span></div>
+        ${urgentTk.length===0?'<div class="empty-state" style="padding:20px;color:#16A34A">✓ Aucun ticket urgent actif</div>':
+        urgentTk.map(t=>{
+          const fups=getTicketFollowups(t.id);
+          const activeF=(DATA.followups||[]).find(f=>f.ticketId===t.id&&!f.done);
+          const isOverdue=activeF&&activeF.nextRelance&&activeF.nextRelance<=new Date().toISOString().split("T")[0];
+          return `<div class="followup-card ${isOverdue?'overdue':activeF?'due-soon':'ok'}">
+            <div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:8px">
+              <div style="flex:1;min-width:0">
+                <span class="ticket-number">${t.number}</span> <span class="badge-sm prio-${t.priority}">${t.priority}</span> <span class="badge-sm ticket-${t.status}">${t.status}</span>
+                <div style="font-weight:600;font-size:14px;margin-top:4px">${t.title}</div>
+                <div class="row-sub">${t.club} · ${t.salle||'—'} · Intervenant: ${t.intervenant||'—'}</div>
+                ${activeF?`<div style="margin-top:6px;font-size:12px;padding:6px 10px;background:#FFF7ED;border-radius:6px;border:1px solid #FFEDD5">⏰ Prochaine relance: <strong style="color:${isOverdue?'#DC2626':'#D97706'}">${fmtDate(activeF.nextRelance)}</strong> — ${activeF.action}</div>`:'<div style="margin-top:6px;font-size:12px;color:#9CA3AF">Aucune relance planifiée</div>'}
+                ${fups.length>0?`<div class="followup-timeline">${fups.slice(0,3).map(f=>`<div class="followup-entry"><span class="fe-date">${fmtDateShort(f.date)}</span>${f.action} ${f.contact?'('+f.contact+')':''} ${f.done?'✅':''}</div>`).join("")}${fups.length>3?`<div class="followup-entry" style="color:#FE7F00;cursor:pointer">+ ${fups.length-3} relance(s) précédentes</div>`:''}</div>`:''}
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <button class="btn-add" onclick="addFollowupForm(${t.id})">🔄 Relancer</button>
+                ${DATA.alertSettings?.phone?`<button class="btn-secondary" onclick="sendUrgentAlert('Ticket ${t.number}','${t.title} — ${t.club}')">📱 Alerte tél.</button>`:''}
+              </div>
+            </div>
+          </div>`;
+        }).join("")}
+      </div>
+    `;
+  }
+
+  // ═══ CV MANAGEMENT ═══
+  else if(activeTab==="cv"){
+    if(!DATA.cvs)DATA.cvs=[];
+    const requiredSkills=["Accueil clientèle","Vente / Objectifs","Ménage / Entretien","Ouverture / Fermeture","Ponctualité","Travail en équipe"];
+    const cvSorted=[...DATA.cvs].map(cv=>{
+      const match=matchCVScore(cv.skills||[],requiredSkills);
+      return {...cv,matchScore:match.score,matchData:match};
+    }).sort((a,b)=>b.matchScore-a.matchScore);
+    const statusFilter=['nouveau','entretien','retenu','refusé','en attente'];
+    const statusLabels={nouveau:'📄 Nouveau',entretien:'📞 Entretien',retenu:'✅ Retenu','refusé':'❌ Refusé','en attente':'⏳ En attente'};
+    const statusColors={nouveau:'#3B82F6',entretien:'#F59E0B',retenu:'#16A34A','refusé':'#DC2626','en attente':'#8B5CF6'};
+
+    area.innerHTML=`
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+        <div class="section-title">📄 Recrutement / Gestion CV</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div class="save-indicator" id="saveIndicator" style="background:rgba(22,163,74,.12);color:#16A34A">✓ Sauvegardé</div>
+          <button class="btn-add" onclick="addCVForm()">+ Nouveau CV</button>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-label">Total CV</div><div class="stat-value" style="color:#3B82F6">${DATA.cvs.length}</div></div>
+        <div class="stat-card"><div class="stat-label">Nouveaux</div><div class="stat-value" style="color:#16A34A">${DATA.cvs.filter(c=>c.status==='nouveau').length}</div></div>
+        <div class="stat-card"><div class="stat-label">En entretien</div><div class="stat-value" style="color:#F59E0B">${DATA.cvs.filter(c=>c.status==='entretien').length}</div></div>
+        <div class="stat-card"><div class="stat-label">Retenus</div><div class="stat-value" style="color:#16A34A">${DATA.cvs.filter(c=>c.status==='retenu').length}</div></div>
+      </div>
+
+      <div class="panel" style="margin-bottom:14px;border-left:3px solid #0D9488">
+        <div class="panel-header"><span class="panel-title">🎯 Compétences recherchées (tri automatique)</span></div>
+        <div style="padding:10px 20px;display:flex;gap:4px;flex-wrap:wrap">
+          ${requiredSkills.map(s=>`<span class="cv-skill match">${s}</span>`).join("")}
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Candidatures triées par compatibilité (${cvSorted.length})</span></div>
+        ${cvSorted.length===0?'<div class="empty-state"><div class="empty-state-icon">📄</div><div>Aucun CV enregistré</div></div>':
+        cvSorted.map(cv=>{
+          const matchClass=cv.matchScore>=70?'top-match':cv.matchScore>=40?'good-match':'low-match';
+          const matchBadge=cv.matchScore>=70?'cv-match-high':cv.matchScore>=40?'cv-match-medium':'cv-match-low';
+          const stars='★'.repeat(cv.rating||0)+'☆'.repeat(5-(cv.rating||0));
+          return `<div class="cv-card ${matchClass}">
+            <div class="cv-header">
+              <div>
+                <div class="cv-name">${cv.name}</div>
+                <div class="cv-info"><span>📞 ${cv.phone||'—'}</span><span>✉ ${cv.email||'—'}</span><span>📍 ${cv.club}</span><span>📋 ${cv.contrat}</span><span>📅 ${cv.dispo||'—'}</span></div>
+              </div>
+              <div style="text-align:right">
+                <div class="cv-match ${matchBadge}">${cv.matchScore}% compatible</div>
+                <div style="margin-top:4px;cursor:pointer;font-size:16px;color:#F59E0B" title="Noter">${[1,2,3,4,5].map(s=>`<span onclick="rateCVStar(${cv.id},${s})" style="cursor:pointer">${s<=(cv.rating||0)?'★':'☆'}</span>`).join("")}</div>
+              </div>
+            </div>
+            <div class="cv-skills">
+              ${(cv.matchData?.matched||[]).map(s=>`<span class="cv-skill match">✓ ${s}</span>`).join("")}
+              ${(cv.matchData?.missing||[]).map(s=>`<span class="cv-skill missing">✗ ${s}</span>`).join("")}
+              ${(cv.matchData?.extra||[]).map(s=>`<span class="cv-skill extra">+ ${s}</span>`).join("")}
+            </div>
+            ${cv.note?`<div class="cv-note">💬 ${cv.note}</div>`:''}
+            <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center">
+              <span style="font-size:11px;color:#9CA3AF;margin-right:4px">Statut:</span>
+              ${statusFilter.map(s=>`<button class="alert-chip ${cv.status===s?'active':''}" style="${cv.status===s?'border-color:'+statusColors[s]+';color:'+statusColors[s]+';background:'+statusColors[s]+'15':''}" onclick="updateCVStatus(${cv.id},'${s}')">${statusLabels[s]}</button>`).join("")}
+              <button class="btn-danger" style="margin-left:auto" onclick="deleteCV(${cv.id})">✕</button>
+            </div>
+            <div style="font-size:10px;color:#D1D5DB;margin-top:6px">Reçu le ${fmtDate(cv.dateRecu)}</div>
+          </div>`;
+        }).join("")}
+      </div>
+    `;
+  }
+
+  // ═══ AVIS GOOGLE ═══
+  else if(activeTab==="avis"){
+    // Add Google Maps ratings from club data at the top
+    const reviewsAge=DATA.clubs.map(c=>{const last=DATA.avisLastFetch[c.name];const stale=!last||last<new Date().toISOString().split("T")[0];return{name:c.name,rating:c.googleRating||0,count:c.googleCount||0,stale,last}});
+
+    if(!DATA.avisGoogle)DATA.avisGoogle=[];
+    const clubFilter=selectedClub==="all"?DATA.avisGoogle:DATA.avisGoogle.filter(a=>a.club===selectedClub);
+    const sorted=[...clubFilter].sort((a,b)=>new Date(b.date)-new Date(a.date));
+    const avgAll=sorted.length>0?Math.round(sorted.reduce((s,a)=>s+a.stars,0)/sorted.length*10)/10:0;
+    const negatives=sorted.filter(a=>a.stars<=2);
+    const equipIssues=sorted.filter(a=>a.tags&&a.tags.some(t=>t.label==="Machine HS"||t.label==="Équipement"));
+
+    // Build Google rating cards per club with distinct colors
+    var clubColors=["#0D9488","#3B82F6","#8B5CF6","#EA580C","#16A34A"];
+    var clubCardHtml="";
+    DATA.clubs.forEach(function(c,i){
+      var color=clubColors[i%clubColors.length];
+      var lastFetch=DATA.avisLastFetch[c.name]||"";
+      var stale=!lastFetch||lastFetch<new Date().toISOString().split("T")[0];
+      var ratingColor=(c.googleRating||0)>=4.5?"#16A34A":(c.googleRating||0)>=4?"#0D9488":(c.googleRating||0)>=3?"#F59E0B":"#DC2626";
+      var st=getClubAvisStats(c.name);
+      clubCardHtml+='<div style="border:2px solid '+color+'30;border-radius:12px;padding:16px;background:linear-gradient(135deg,#fff 80%,'+color+'08);position:relative;overflow:hidden">';
+      clubCardHtml+='<div style="position:absolute;top:0;left:0;width:5px;height:100%;background:'+color+'"></div>';
+      clubCardHtml+='<div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px;padding-left:8px">';
+      clubCardHtml+='<div><div style="font-weight:700;font-size:15px;color:#0F1729;display:flex;align-items:center;gap:6px">'+c.name+(c.isHome?' <span style="font-size:9px;padding:2px 6px;background:#0D948820;color:#0D9488;border-radius:6px;font-weight:700">🏠 HOME</span>':'')+'</div>';
+      clubCardHtml+='<div style="font-size:11px;color:#6B7280;margin-top:2px">'+c.code+' · '+c.horaires+'</div></div>';
+      clubCardHtml+='<div style="text-align:right"><div style="font-size:28px;font-weight:800;color:'+ratingColor+'">'+(c.googleRating||"—")+'</div><div style="font-size:10px;color:#6B7280">/ 5 ⭐ ('+c.googleCount+' avis)</div></div>';
+      clubCardHtml+='</div>';
+      clubCardHtml+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;padding-left:8px">';
+      clubCardHtml+='<span style="font-size:11px;padding:3px 8px;background:#F3F4F6;border-radius:6px;color:#374151">'+st.count+' avis saisis</span>';
+      if(st.equipIssues>0)clubCardHtml+='<span style="font-size:11px;padding:3px 8px;background:#FEE2E2;border-radius:6px;color:#DC2626;font-weight:600">⚠ '+st.equipIssues+' pb équipement</span>';
+      if(st.cleanIssues>0)clubCardHtml+='<span style="font-size:11px;padding:3px 8px;background:#FEF3C7;border-radius:6px;color:#92400E;font-weight:600">⚠ '+st.cleanIssues+' propreté</span>';
+      clubCardHtml+='</div>';
+      clubCardHtml+='<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding-left:8px">';
+      clubCardHtml+='<button class="btn-add" style="font-size:11px;padding:5px 12px;background:'+color+'" onclick="refreshGoogleReviews(\''+c.name.replace(/'/g,"\\'")+'\')">🔄 Rafraîchir</button>';
+      clubCardHtml+='<button class="btn-secondary" style="font-size:11px;padding:5px 10px" onclick="window.open(\'https://www.google.com/maps/place/?q=place_id:'+c.placeId+'\',\'_blank\')">📍 Maps</button>';
+      clubCardHtml+='<span style="font-size:10px;color:'+(stale?"#DC2626":"#16A34A")+'">'+(stale?"⚠ Pas vérifié aujourd\'hui":"✅ "+fmtDateShort(lastFetch))+'</span>';
+      clubCardHtml+='</div></div>';
+    });
+
+    area.innerHTML=`
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+        <div class="section-title">⭐ Avis Google <span>${selectedClub==="all"?"Tous les clubs":selectedClub}</span></div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn-export" style="background:#0D9488;border-color:#0D9488;color:#fff" onclick="refreshAllGoogleReviews()">🔄 Manuel</button>
+          <button class="btn-add" style="background:#16A34A" onclick="testGoogleApi()">⚡ MAJ Auto</button>
+          <span style="font-size:10px;color:#6B7280;max-width:100px">${DATA.lastGoogleAutoRefresh?'✅ '+fmtDateShort(DATA.lastGoogleAutoRefresh):'Pas de MAJ auto'}</span>
+          <button class="btn-add" onclick="addAvisForm('${selectedClub==="all"?"":selectedClub}')">+ Ajouter un avis</button>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;margin-bottom:20px">
+        `+clubCardHtml+`
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-label">Total avis saisis</div><div class="stat-value" style="color:#F59E0B">${sorted.length}</div></div>
+        <div class="stat-card"><div class="stat-label">Moyenne saisie</div><div class="stat-value" style="color:${avgAll>=4?'#16A34A':avgAll>=3?'#F59E0B':'#DC2626'}">${avgAll} ⭐</div></div>
+        <div class="stat-card"><div class="stat-label">Négatifs (≤2★)</div><div class="stat-value" style="color:#DC2626">${negatives.length}</div></div>
+        <div class="stat-card"><div class="stat-label">Pb équipement</div><div class="stat-value" style="color:#8B5CF6">${equipIssues.length}</div></div>
+      </div>
+
+      ${selectedClub==="all"?`<div class="panel">
+        <div class="panel-header"><span class="panel-title">📊 Tableau comparatif</span></div>
+        <div style="overflow-x:auto"><table class="data-table"><thead><tr><th></th><th>Club</th><th>Note Google</th><th>Nb avis</th><th>Saisis</th><th>Équipement</th><th>MAJ</th><th>État</th></tr></thead><tbody>
+        ${DATA.clubs.map((c,i)=>{const st=getClubAvisStats(c.name);const needs=needsAvisRefresh(c.name);const cc=["#0D9488","#3B82F6","#8B5CF6","#EA580C","#16A34A"][i%5];return `<tr>
+          <td><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${cc}"></span></td>
+          <td><strong>${c.name}</strong>${c.isHome?" 🏠":""}</td>
+          <td style="font-weight:800;font-size:16px;color:${(c.googleRating||0)>=4.5?'#16A34A':(c.googleRating||0)>=4?'#0D9488':'#F59E0B'}">${c.googleRating||'—'} ⭐</td>
+          <td style="font-weight:600">${c.googleCount||0}</td>
+          <td>${st.count}</td>
+          <td>${st.equipIssues>0?`<span style="color:#DC2626;font-weight:600">${st.equipIssues} ⚠</span>`:'✓ OK'}</td>
+          <td style="font-size:11px;color:#6B7280">${DATA.avisLastFetch&&DATA.avisLastFetch[c.name]?fmtDateShort(DATA.avisLastFetch[c.name]):'Jamais'}</td>
+          <td>${needs?'<span class="badge-sm prio-urgente" style="font-size:10px">⚠ À jour</span>':'<span class="badge-sm" style="background:#D1FAE5;color:#065F46;font-size:10px">✅ OK</span>'}</td>
+        </tr>`}).join("")}
+        </tbody></table></div>
+      </div>`:''}
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Tous les avis (${sorted.length})</span></div>
+        ${sorted.length===0?'<div class="empty-state"><div class="empty-state-icon">⭐</div><div>Aucun avis enregistré</div><div style="font-size:12px;color:#9CA3AF;margin-top:8px">Ajoute les avis Google de tes clubs pour suivre la satisfaction et les problèmes équipement</div></div>':
+        sorted.map(a=>`<div class="avis-card">
+          <div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:8px">
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="avis-stars">${'⭐'.repeat(a.stars)}</span><strong>${a.club}</strong> <span class="club-code">${getClubCode(a.club)}</span></div>
+              <div class="avis-text">"${a.text}"</div>
+              <div class="avis-author">— ${a.author} · ${fmtDate(a.date)}</div>
+              ${a.tags&&a.tags.length>0?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">${a.tags.map(t=>`<span class="cv-skill ${t.type==='negatif'?'missing':t.type==='positif'?'match':'partial'}">${t.label}</span>`).join("")}</div>`:''}
+            </div>
+            <button class="btn-danger" onclick="deleteAvis(${a.id})">✕</button>
+          </div>
+        </div>`).join("")}
+      </div>
+
+      <div style="background:#FFF7ED;border:1px dashed #FDBA74;color:#9A3412;padding:12px 16px;border-radius:8px;font-size:12px;margin-top:12px">
+        💡 <strong>Astuce :</strong> Copie-colle les avis depuis Google Maps chaque semaine. Les clubs marqués "À rafraîchir" n'ont pas été mis à jour depuis 7 jours. Les avis négatifs mentionnant des équipements déclenchent une alerte automatique.
+      </div>
+    `;
+  }
+
+  // ═══ CARTE & TRAJETS ═══
+  else if(activeTab==="carte"){
+    if(!DATA.clubVisitLog)DATA.clubVisitLog=[];
+    var todayStr=new Date().toISOString().split("T")[0];
+    // Week visits
+    var weekStart=new Date();weekStart.setDate(weekStart.getDate()-((weekStart.getDay()+6)%7));
+    var weekStartStr=weekStart.toISOString().split("T")[0];
+    var weekVisits={};
+    DATA.clubs.forEach(function(c){weekVisits[c.name]=DATA.clubVisitLog.filter(function(v){return v.club===c.name&&v.date>=weekStartStr}).length});
+
+    // Distances matrix (pre-calculated in minutes)
+    var DIST_MATRIX={
+      "Meaux Victoire":{"Chauconin-Neufmontiers":5,"Nanteuil-lès-Meaux":8,"Serris Danube":25,"Lagny-sur-Marne":20},
+      "Chauconin-Neufmontiers":{"Meaux Victoire":5,"Nanteuil-lès-Meaux":6,"Serris Danube":22,"Lagny-sur-Marne":25},
+      "Nanteuil-lès-Meaux":{"Meaux Victoire":8,"Chauconin-Neufmontiers":6,"Serris Danube":20,"Lagny-sur-Marne":25},
+      "Serris Danube":{"Meaux Victoire":25,"Chauconin-Neufmontiers":22,"Nanteuil-lès-Meaux":20,"Lagny-sur-Marne":15},
+      "Lagny-sur-Marne":{"Meaux Victoire":20,"Chauconin-Neufmontiers":25,"Nanteuil-lès-Meaux":25,"Serris Danube":15}
+    };
+
+    // Optimal route (pre-calculated): Meaux→Chauconin→Nanteuil→Serris→Lagny = ~46min total
+    var OPTIMAL_ROUTE=["Meaux Victoire","Chauconin-Neufmontiers","Nanteuil-lès-Meaux","Serris Danube","Lagny-sur-Marne"];
+    var totalRouteMin=5+6+20+15; // 46 min
+
+    var clubColors=["#0D9488","#3B82F6","#8B5CF6","#EA580C","#16A34A"];
+
+    // Build visit cards
+    var visitCardsHtml="";
+    DATA.clubs.forEach(function(c,i){
+      var col=clubColors[i];
+      var wv=weekVisits[c.name]||0;
+      var todayV=DATA.clubVisitLog.filter(function(v){return v.club===c.name&&v.date===todayStr}).length;
+      visitCardsHtml+='<div style="border:2px solid '+col+'30;border-radius:12px;padding:14px;position:relative;overflow:hidden">';
+      visitCardsHtml+='<div style="position:absolute;top:0;left:0;width:4px;height:100%;background:'+col+'"></div>';
+      visitCardsHtml+='<div style="padding-left:10px">';
+      visitCardsHtml+='<div style="display:flex;justify-content:space-between;align-items:center">';
+      visitCardsHtml+='<div><div style="font-weight:700;font-size:14px;color:#0F1729">'+c.name+(c.isHome?' 🏠':'')+'</div>';
+      visitCardsHtml+='<div style="font-size:11px;color:#6B7280">'+c.code+' · '+c.horaires+'</div></div>';
+      visitCardsHtml+='<div style="text-align:center"><div style="font-size:24px;font-weight:800;color:'+col+'">'+wv+'</div><div style="font-size:9px;color:#6B7280">visites/sem</div></div>';
+      visitCardsHtml+='</div>';
+      visitCardsHtml+='<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center">';
+      visitCardsHtml+='<button class="btn-add" style="font-size:11px;padding:5px 10px;background:'+col+'" onclick="logClubVisit('+i+')">📍 Pointer visite</button>';
+      visitCardsHtml+='<button class="btn-secondary" style="font-size:11px;padding:5px 10px" onclick="openWaze('+i+')">🚗 Waze</button>';
+      visitCardsHtml+='<button class="btn-secondary" style="font-size:11px;padding:5px 10px" onclick="openGoogleMaps('+i+')">📍 Maps</button>';
+      visitCardsHtml+=(todayV>0?'<span style="font-size:10px;color:#16A34A;font-weight:600">✅ Visité aujourd\'hui</span>':'<span style="font-size:10px;color:#9CA3AF">Pas visité aujourd\'hui</span>');
+      visitCardsHtml+='</div>';
+      visitCardsHtml+='<div style="margin-top:8px;font-size:11px;color:#6B7280">⏰ Peak matin: <strong style="color:'+col+'">'+c.peakAM+'</strong> · Peak soir: <strong style="color:'+col+'">'+c.peakPM+'</strong></div>';
+      visitCardsHtml+='</div></div>';
+    });
+
+    // Route steps
+    var routeHtml="";
+    OPTIMAL_ROUTE.forEach(function(name,i){
+      var c=DATA.clubs.find(function(x){return x.name===name});
+      var col=clubColors[DATA.clubs.indexOf(c)];
+      if(i>0){
+        var prev=OPTIMAL_ROUTE[i-1];
+        var mins=DIST_MATRIX[prev]?DIST_MATRIX[prev][name]||"?":"?";
+        routeHtml+='<div style="text-align:center;color:#9CA3AF;font-size:12px;padding:4px 0">🚗 '+mins+' min</div>';
+      }
+      routeHtml+='<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-left:3px solid '+col+';background:'+col+'08;border-radius:0 8px 8px 0">';
+      routeHtml+='<div style="font-weight:700;font-size:16px;color:'+col+';width:24px">'+(i+1)+'</div>';
+      routeHtml+='<div><div style="font-weight:600;color:#0F1729">'+c.name+(c.isHome?' 🏠':'')+'</div>';
+      routeHtml+='<div style="font-size:11px;color:#6B7280">'+c.fullName+' · Peak: '+c.peakAM+' / '+c.peakPM+'</div></div></div>';
+    });
+
+    area.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">'+
+      '<div class="section-title">🗺 Carte & Trajets <span>5 clubs · Seine-et-Marne</span></div>'+
+      '<div style="display:flex;gap:6px"><button class="btn-add" onclick="openWazeRoute()">🚗 Route complète Waze</button><button class="btn-secondary" onclick="openGoogleMapsRoute()">📍 Route Google Maps</button></div>'+
+    '</div>'+
+    '<div class="stats-grid">'+
+      '<div class="stat-card"><div class="stat-label">Visites cette semaine</div><div class="stat-value" style="color:#0D9488">'+Object.values(weekVisits).reduce(function(a,b){return a+b},0)+'</div></div>'+
+      '<div class="stat-card"><div class="stat-label">Route optimale</div><div class="stat-value">'+totalRouteMin+' min</div></div>'+
+      '<div class="stat-card"><div class="stat-label">Clubs visités / sem</div><div class="stat-value">'+Object.values(weekVisits).filter(function(v){return v>0}).length+' / 5</div></div>'+
+      '<div class="stat-card"><div class="stat-label">Distance totale</div><div class="stat-value">~55 km</div></div>'+
+    '</div>'+
+    '<div id="clusterMap" style="height:380px;border-radius:12px;border:2px solid #E5E7EB;margin-bottom:16px"></div>'+
+    '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin-bottom:16px">'+visitCardsHtml+'</div>'+
+    '<div class="panel"><div class="panel-header"><span class="panel-title">🛣 Route optimisée — '+totalRouteMin+' min de trajet</span><button class="btn-add" onclick="openWazeRoute()">🚗 Lancer sur Waze</button></div>'+
+      '<div style="padding:16px">'+routeHtml+
+      '<div style="text-align:center;margin-top:12px;padding:10px;background:#F0FDFA;border-radius:8px;color:#0F766E;font-size:13px;font-weight:600">✅ Total trajet: '+totalRouteMin+' min · Optimal: Meaux → Chauconin → Nanteuil → Serris → Lagny</div>'+
+    '</div></div>'+
+    '<div class="panel"><div class="panel-header"><span class="panel-title">⏰ Heures de pointe recommandées</span></div>'+
+      '<div style="overflow-x:auto"><table class="data-table"><thead><tr><th></th><th>Club</th><th>Peak matin</th><th>Peak soir</th><th>Visite idéale</th><th>Horaires</th></tr></thead><tbody>'+
+      DATA.clubs.map(function(c,i){return '<tr><td><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:'+clubColors[i]+'"></span></td><td><strong>'+c.name+'</strong>'+(c.isHome?' 🏠':'')+'</td><td style="font-weight:600;color:'+clubColors[i]+'">'+c.peakAM+'</td><td style="font-weight:600;color:'+clubColors[i]+'">'+c.peakPM+'</td><td style="font-size:12px">Matin peak ou soir peak</td><td style="font-size:12px;color:#6B7280">'+c.horaires+'</td></tr>'}).join("")+
+    '</tbody></table></div></div>'+
+    '<div style="background:#F0FDFA;border:1px dashed #99F6E4;color:#0F766E;padding:12px 16px;border-radius:8px;font-size:12px;margin-top:12px">💡 <strong>Astuce :</strong> Visite tes clubs aux heures de pointe pour voir le flux réel. Pointe tes visites pour le suivi hebdo. Le bouton Waze lance la navigation GPS directement.</div>';
+
+    // Init Leaflet map
+    setTimeout(function(){
+      var mapEl=document.getElementById("clusterMap");
+      if(!mapEl||mapEl._leaflet_id)return;
+      var map=L.map("clusterMap").setView([48.916,2.82],11);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"© OpenStreetMap",maxZoom:18}).addTo(map);
+      var coords=[];
+      DATA.clubs.forEach(function(c,i){
+        if(!c.lat||!c.lng)return;
+        var col=clubColors[i];
+        var icon=L.divIcon({className:"",html:'<div style="background:'+col+';color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3)">'+(i+1)+'</div>',iconSize:[28,28],iconAnchor:[14,14]});
+        L.marker([c.lat,c.lng],{icon:icon}).addTo(map).bindPopup('<strong>'+c.name+'</strong>'+(c.isHome?' 🏠':'')+'<br>'+c.code+' · '+c.horaires+'<br>⭐ '+c.googleRating+'/5 ('+c.googleCount+' avis)<br>Peak: '+c.peakAM+' / '+c.peakPM);
+        coords.push([c.lat,c.lng]);
+      });
+      // Draw route line
+      var routeCoords=OPTIMAL_ROUTE.map(function(name){var c=DATA.clubs.find(function(x){return x.name===name});return c?[c.lat,c.lng]:null}).filter(Boolean);
+      if(routeCoords.length>1)L.polyline(routeCoords,{color:"#0D9488",weight:3,dashArray:"8,8",opacity:0.7}).addTo(map);
+      if(coords.length>0)map.fitBounds(coords,{padding:[30,30]});
+    },200);
+  }
+
+    // ═══ CONTACTS & PRESTATAIRES ═══
+  else if(activeTab==="contacts"){
+    if(!DATA.contactsInternes)DATA.contactsInternes=[];
+    var CC=["#0D9488","#3B82F6","#8B5CF6","#EA580C","#16A34A"];
+    var intHtml="";
+    (DATA.contactsInternes||[]).forEach(function(c){
+      intHtml+='<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #F0F0F3"><div><strong>'+c.nom+'</strong><div style="font-size:12px;color:#6B7280">'+c.role+'</div></div><div style="display:flex;gap:4px">';
+      if(c.tel)intHtml+='<a href="tel:'+c.tel+'" class="btn-secondary" style="font-size:10px;padding:3px 8px;text-decoration:none">'+c.tel+'</a><a href="https://wa.me/'+c.tel.replace(/[^0-9+]/g,"")+'" target="_blank" class="btn-secondary" style="font-size:10px;padding:3px 8px;text-decoration:none">💬</a>';
+      intHtml+='<button class="btn-secondary" style="font-size:10px;padding:3px 6px" onclick="editContact('+c.id+')">✏</button></div></div>';
+    });
+    var cleanHtml="";
+    DATA.clubs.forEach(function(c,i){
+      var cl=c.cleaning||{};var col=CC[i];
+      cleanHtml+='<div style="border:2px solid '+col+'30;border-radius:10px;padding:14px;border-left:4px solid '+col+'"><div style="font-weight:700;color:#0F1729;margin-bottom:6px">'+c.name+(c.isHome?' 🏠':'')+'</div><div style="font-size:13px;color:#374151"><strong>'+(cl.societe||'?')+'</strong></div>';
+      if(cl.contact)cleanHtml+='<div style="font-size:12px;color:#6B7280;margin-top:2px">Contact: '+cl.contact+'</div>';
+      if(cl.tel)cleanHtml+='<div style="display:flex;gap:6px;margin-top:8px"><a href="tel:'+cl.tel+'" class="btn-add" style="font-size:11px;padding:4px 10px;background:'+col+';text-decoration:none">📞 Appeler</a><a href="https://wa.me/33'+cl.tel.substring(1)+'" target="_blank" class="btn-secondary" style="font-size:11px;padding:4px 10px;text-decoration:none">💬 WA</a></div>';
+      cleanHtml+='</div>';
+    });
+    area.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px"><div class="section-title">📞 Contacts & Prestataires <span>Region BFFR03.36</span></div><button class="btn-add" onclick="addContactForm()">+ Contact</button></div>'+
+    '<div class="panel"><div class="panel-header"><span class="panel-title">👔 Hierarchie & Contacts internes</span></div>'+intHtml+'</div>'+
+    '<div class="panel"><div class="panel-header"><span class="panel-title">🧹 Prestataires Cleaning</span></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;padding:16px">'+cleanHtml+'</div></div>'+
+    '<div class="panel"><div class="panel-header"><span class="panel-title">🚨 Points attention secteur</span></div>'+
+    DATA.clubs.filter(function(c){return c.priorite}).map(function(c){return '<div style="padding:12px 16px;border-bottom:1px solid #F0F0F3;border-left:3px solid '+(c.status==="alert"?"#DC2626":"#F59E0B")+'"><strong>'+c.code+' '+c.name+(c.isHome?' 🏠':'')+'</strong><div style="font-size:13px;color:#374151;margin-top:4px">'+c.priorite+'</div></div>'}).join("")+
+    '</div>'+
+    '<div class="panel"><div class="panel-header"><span class="panel-title">📋 Rappels du poste</span></div><div style="padding:16px;font-size:13px;line-height:2;color:#374151">'+
+    '<div>🏢 <strong>Poste 100% terrain</strong> — 35h en clubs</div><div>🔒 <strong>Mardi</strong> — Fermeture Home Club (Meaux)</div><div>🔓 <strong>Vendredi</strong> — Ouverture Home Club (Meaux)</div><div>🗓 <strong>3 journees</strong> visites clubs / semaine</div><div>📅 <strong>1 presence WE</strong> / mois</div><div>📱 <strong>Scan QR Code</strong> obligatoire a chaque entree</div><div>🔍 <strong>Audit complet</strong> 1x/mois/club via app</div><div>👥 <strong>Reunions Teams</strong> a organiser avec equipes</div></div></div>';
+  }
+
+  // ═══ CHECK-LIST VISITE ═══
+  else if(activeTab==="checklist"){
+    if(!DATA.checklistLogs)DATA.checklistLogs=[];
+    var todayStr=new Date().toISOString().split("T")[0];
+    var CK=[{id:"ext",label:"Etat exterieur",icon:"🏢"},{id:"portiques",label:"Portiques & kiosks",icon:"🚪"},{id:"vestiaires",label:"Vestiaires & sanitaires",icon:"🚿"},{id:"locaux",label:"Locaux techniques",icon:"🔧"},{id:"issues",label:"Issues de secours",icon:"🚨"},{id:"extincteurs",label:"Extincteurs",icon:"🧯"},{id:"registres",label:"Registres obligatoires",icon:"📋"},{id:"tickets",label:"Tickets Xurrent",icon:"🎫"},{id:"machines",label:"Machines & selleries",icon:"🏋️"},{id:"avis",label:"Avis Google & retours",icon:"⭐"},{id:"equipe",label:"Echange equipe",icon:"👥"},{id:"stocks",label:"Stocks",icon:"📦"},{id:"formations",label:"Formations",icon:"📚"},{id:"entretien",label:"Entretien general",icon:"✨"}];
+    var CC=["#0D9488","#3B82F6","#8B5CF6","#EA580C","#16A34A"];
+    var ckHtml="";
+    DATA.clubs.forEach(function(c,idx){
+      var col=CC[idx];
+      var todayLog=(DATA.checklistLogs||[]).find(function(l){return l.club===c.name&&l.date===todayStr});
+      var checked=todayLog?todayLog.items:{};
+      var done=Object.values(checked).filter(Boolean).length;
+      var pct=CK.length>0?Math.round(done/CK.length*100):0;
+      ckHtml+='<div class="panel" style="border-left:4px solid '+col+'"><div class="panel-header"><div><span class="panel-title">'+c.name+(c.isHome?' 🏠':'')+'</span></div><div style="display:flex;align-items:center;gap:8px"><div style="font-size:14px;font-weight:700;color:'+col+'">'+pct+'%</div><span style="font-size:11px;color:#6B7280">'+done+'/'+CK.length+'</span></div></div>';
+      ckHtml+='<div style="height:4px;background:#E5E7EB;border-radius:2px;margin:0 16px 12px"><div style="height:100%;width:'+pct+'%;background:'+col+';border-radius:2px"></div></div>';
+      ckHtml+='<div style="padding:0 16px 16px;display:grid;grid-template-columns:1fr 1fr;gap:4px">';
+      CK.forEach(function(item){
+        var ck=checked[item.id]||false;
+        ckHtml+='<label style="display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:12px;'+(ck?'background:#F0FDFA;color:#0F766E;text-decoration:line-through':'color:#374151')+'" onclick="toggleCheckByIdx('+idx+',&quot;'+item.id+'&quot;)"><input type="checkbox" '+(ck?'checked':'')+' style="pointer-events:none"> '+item.icon+' '+item.label+'</label>';
+      });
+      ckHtml+='</div>';
+      if(!todayLog)ckHtml+='<div style="padding:0 16px 12px"><button class="btn-add" style="width:100%;justify-content:center;background:'+col+'" onclick="startCheckByIdx('+idx+')">📋 Demarrer visite</button></div>';
+      ckHtml+='</div>';
+    });
+    var weekStart=new Date();weekStart.setDate(weekStart.getDate()-((weekStart.getDay()+6)%7));
+    var wkLogs=(DATA.checklistLogs||[]).filter(function(l){return l.date>=weekStart.toISOString().split("T")[0]});
+    var visited=[];wkLogs.forEach(function(l){if(visited.indexOf(l.club)<0)visited.push(l.club)});
+    area.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><div class="section-title">✅ Check-list Visite Club <span>Standards region Flo Gallo</span></div></div>'+
+    '<div class="stats-grid"><div class="stat-card"><div class="stat-label">Clubs visites / sem</div><div class="stat-value" style="color:#0D9488">'+visited.length+' / 5</div></div><div class="stat-card"><div class="stat-label">Objectif</div><div class="stat-value">3j / sem</div></div><div class="stat-card"><div class="stat-label">Check-lists / sem</div><div class="stat-value">'+wkLogs.length+'</div></div><div class="stat-card"><div class="stat-label">Audit mensuel</div><div class="stat-value" style="color:#8B5CF6">1x / club</div></div></div>'+
+    ckHtml;
+  }
+
+    // ═══ WORKDAY MODULE ═══
+  else if(activeTab==="workday"){
+    if(!DATA.workday)DATA.workday={employees:[],notes:[],lastSync:""};
+if(!DATA.clubVisitLog)DATA.clubVisitLog=[];
+if(!DATA.agentPlanning)DATA.agentPlanning=[];
+if(!DATA.checklistLogs)DATA.checklistLogs=[];
+if(!DATA.contactsInternes)DATA.contactsInternes=[{id:1,nom:"Florian GALLO",role:"Regional Manager",tel:"+33607316241",region:"BFFR03.36"},{id:2,nom:"Mathilde Heimst",role:"Ticketing SSD & CVC / Facility",tel:""},{id:3,nom:"Shanael Zaoui",role:"HRBP",tel:""},{id:4,nom:"Thomas Marechal",role:"FSD",tel:""},{id:5,nom:"Laura Joeckle",role:"Conformite & Formations",tel:""},{id:6,nom:"Pierre Fuoc",role:"Planning",tel:""},{id:7,nom:"Sanaa Hilmi",role:"Quality Assessment",tel:""},{id:8,nom:"Ana Castro",role:"Partner Manager",tel:""}];
+if(!DATA.googleApiKey)DATA.googleApiKey="";
+if(!DATA.lastGoogleAutoRefresh)DATA.lastGoogleAutoRefresh="";
+    const wd=DATA.workday;
+
+    area.innerHTML=`
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+        <div class="section-title">👥 Workday <span>Suivi RH · Infos collaborateurs</span></div>
+        <div style="display:flex;gap:6px">
+          <button class="btn-add" onclick="addWorkdayEmployee()">+ Collaborateur</button>
+          <button class="btn-add" onclick="addWorkdayNote()">📝 Note RH</button>
+          <button class="btn-add" onclick="importWorkdayAgentsExcel()">📥 Import Agents Excel</button>
+          <button class="btn-secondary" onclick="importWorkdayPlanningExcel()">📅 Import Planning</button>
+          <a href="https://wd103.myworkday.com/basicfit/d/home.htmld" target="_blank" class="btn-export" style="text-decoration:none">🔗 Ouvrir Workday</a>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-label">Collaborateurs</div><div class="stat-value" style="color:#0D9488">${wd.employees.length}</div></div>
+        <div class="stat-card"><div class="stat-label">CDI</div><div class="stat-value">${wd.employees.filter(e=>e.contrat==="CDI").length}</div></div>
+        <div class="stat-card"><div class="stat-label">CDD / Alternance</div><div class="stat-value">${wd.employees.filter(e=>e.contrat==="CDD"||e.contrat==="Alternance").length}</div></div>
+        <div class="stat-card"><div class="stat-label">Notes RH</div><div class="stat-value">${wd.notes.length}</div></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:16px">
+        <a href="https://wd103.myworkday.com/basicfit/d/home.htmld" target="_blank" style="display:flex;align-items:center;gap:12px;padding:16px;background:#F0FDFA;border:1px solid #99F6E4;border-radius:10px;text-decoration:none;color:#0F766E;transition:.2s" onmouseover="this.style.borderColor='#0D9488'" onmouseout="this.style.borderColor='#99F6E4'">
+          <span style="font-size:28px">🏢</span>
+          <div><div style="font-weight:700;font-size:14px">Workday Home</div><div style="font-size:11px;color:#6B7280">Accès direct au portail RH</div></div>
+        </a>
+        <a href="https://wd103.myworkday.com/basicfit/d/home.htmld" target="_blank" style="display:flex;align-items:center;gap:12px;padding:16px;background:#F0F7FF;border:1px solid #93C5FD;border-radius:10px;text-decoration:none;color:#1D4ED8;transition:.2s">
+          <span style="font-size:28px">📋</span>
+          <div><div style="font-weight:700;font-size:14px">Planning</div><div style="font-size:11px;color:#6B7280">Plannings et absences</div></div>
+        </a>
+        <a href="https://wd103.myworkday.com/basicfit/d/home.htmld" target="_blank" style="display:flex;align-items:center;gap:12px;padding:16px;background:#FFF7ED;border:1px solid #FDBA74;border-radius:10px;text-decoration:none;color:#9A3412;transition:.2s">
+          <span style="font-size:28px">📊</span>
+          <div><div style="font-weight:700;font-size:14px">Rapports</div><div style="font-size:11px;color:#6B7280">EPL, signalements, évaluations</div></div>
+        </a>
+        <a href="https://wd103.myworkday.com/basicfit/d/home.htmld" target="_blank" style="display:flex;align-items:center;gap:12px;padding:16px;background:#FEF2F2;border:1px solid #FECACA;border-radius:10px;text-decoration:none;color:#991B1B;transition:.2s">
+          <span style="font-size:28px">⚠️</span>
+          <div><div style="font-weight:700;font-size:14px">Disciplinaire</div><div style="font-size:11px;color:#6B7280">EPL, avertissements, procédures</div></div>
+        </a>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">👥 Collaborateurs (${wd.employees.length})</span>
+          <div style="display:flex;gap:6px">
+            <span style="font-size:11px;color:#9CA3AF;padding:5px 0">${wd.lastSync?'Dernière synchro: '+fmtDateShort(wd.lastSync):'Non synchronisé'}</span>
+          </div>
+        </div>
+        ${wd.employees.length===0?'<div class="empty-state" style="padding:30px"><div class="empty-state-icon">👥</div><div>Aucun collaborateur enregistré<br><span style="font-size:12px;color:#9CA3AF">Ajoute tes agents manuellement ou depuis Workday</span></div></div>':'<div style="overflow-x:auto"><table class="data-table"><thead><tr><th>Nom</th><th>Club</th><th>Contrat</th><th>Heures</th><th>Poste</th><th>Workday ID</th><th>Statut</th><th>Actions</th></tr></thead><tbody>'+
+          wd.employees.sort(function(a,b){return(a.club||"").localeCompare(b.club||"")}).map(function(e){
+            var stColor=e.statut==="actif"?"#16A34A":e.statut==="absent"?"#DC2626":e.statut==="formation"?"#3B82F6":"#F59E0B";
+            return '<tr><td style="font-weight:600">'+e.nom+'</td><td>'+e.club+'</td><td><span class="badge-sm">'+e.contrat+'</span></td><td>'+e.heures+'h</td><td style="font-size:12px">'+e.poste+'</td><td style="font-family:monospace;font-size:11px;color:#6B7280">'+(e.workdayId||'—')+'</td><td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+stColor+';margin-right:4px"></span>'+e.statut+'</td><td><div style="display:flex;gap:3px"><button class="btn-secondary" style="font-size:10px;padding:2px 6px" onclick="editWorkdayEmployee('+e.id+')">✏</button><button class="btn-danger" style="font-size:10px;padding:2px 6px" onclick="deleteWorkdayEmployee('+e.id+')">✕</button></div></td></tr>';
+          }).join('')+
+        '</tbody></table></div>'}
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">📝 Notes RH (${wd.notes.length})</span></div>
+        ${wd.notes.length===0?'<div class="empty-state" style="padding:20px"><div class="empty-state-icon">📝</div><div>Aucune note RH</div></div>':
+          wd.notes.sort(function(a,b){return new Date(b.date)-new Date(a.date)}).map(function(n){
+            var catColors={info:"#3B82F6",disciplinaire:"#DC2626",formation:"#F59E0B",admin:"#6B7280",entretien:"#8B5CF6"};
+            return '<div class="panel-row"><div style="flex:1"><div style="display:flex;align-items:center;gap:8px"><span style="font-size:10px;padding:2px 8px;border-radius:4px;background:'+(catColors[n.categorie]||"#6B7280")+'20;color:'+(catColors[n.categorie]||"#6B7280")+';font-weight:600">'+n.categorie+'</span><strong>'+n.titre+'</strong></div><div style="font-size:12px;color:#6B7280;margin-top:4px">'+n.contenu.substring(0,100)+(n.contenu.length>100?'...':'')+'</div><div style="font-size:10px;color:#9CA3AF;margin-top:4px">'+fmtDate(n.date)+(n.agent?' · '+n.agent:'')+(n.club?' · '+n.club:'')+'</div></div><button class="btn-danger" style="font-size:10px;padding:3px 6px" onclick="deleteWorkdayNote('+n.id+')">✕</button></div>';
+          }).join('')}
+      </div>
+
+      <div style="background:#F0FDFA;border:1px dashed #99F6E4;color:#0F766E;padding:12px 16px;border-radius:8px;font-size:12px;margin-top:12px">
+        💡 <strong>Astuce :</strong> Ce module te permet de garder un suivi local de tes agents. Pour les actions officielles (EPL, absences, planning), utilise les liens rapides vers Workday ci-dessus. Tu peux ajouter un Workday ID pour chaque collaborateur afin de retrouver leur profil facilement.
+      </div>
+    `;
+  }
+
+    else if(activeTab==="changelog"){
+    if(!DATA.changelog)DATA.changelog=[];
+    area.innerHTML=`
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+        <div class="section-title">📋 Historique des modifications</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div class="save-indicator" id="saveIndicator" style="background:rgba(22,163,74,.12);color:#16A34A">✓ Sauvegardé</div>
+          <button class="btn-danger" onclick="if(confirm('Vider l\\'historique ?')){DATA.changelog=[];saveData();render()}">Vider</button>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Toutes les modifications (${DATA.changelog.length})</span></div>
+        ${DATA.changelog.length===0?'<div class="empty-state" style="padding:20px">Aucune modification enregistrée</div>':
+        `<div style="overflow-x:auto"><table class="data-table"><thead><tr><th style="width:180px">Date</th><th>Action</th></tr></thead><tbody>
+        ${DATA.changelog.map(c=>`<tr><td style="color:#9CA3AF;font-size:12px">${fmtDate(c.time)}</td><td style="font-size:13px">${c.action}</td></tr>`).join("")}
+        </tbody></table></div>`}
+      </div>
+    `;
+  }
+
+  // ═══ HEURES DE TRAVAIL ═══
+  else if(activeTab==="heures"){
+    if(!DATA.heures)DATA.heures=[];
+    // Get current week (Monday-based)
+    const today=new Date();
+    const weekViewOffset=_heuresWeekOffset||0;
+    const mondayRef=new Date(today);mondayRef.setDate(today.getDate()-((today.getDay()+6)%7)+weekViewOffset*7);
+    const sundayRef=new Date(mondayRef);sundayRef.setDate(mondayRef.getDate()+6);
+    const weekLabel=fmtDateShort(mondayRef.toISOString())+" → "+fmtDateShort(sundayRef.toISOString());
+    const weekKey=mondayRef.toISOString().split("T")[0];
+
+    const JOURS=["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi","Dimanche"];
+    const weekEntries=[];
+    for(let d=0;d<7;d++){
+      const dt=new Date(mondayRef);dt.setDate(mondayRef.getDate()+d);
+      const dateStr=dt.toISOString().split("T")[0];
+      const entry=DATA.heures.find(h=>h.date===dateStr)||{date:dateStr,slots:[],pause:0,note:""};
+      weekEntries.push({jour:JOURS[d],dateStr,entry,isToday:dateStr===today.toISOString().split("T")[0]});
+    }
+
+    // Calc totals
+    function calcDayMinutes(entry){
+      let total=0;
+      (entry.slots||[]).forEach(s=>{
+        if(s.debut&&s.fin){
+          const[h1,m1]=s.debut.split(":").map(Number);
+          const[h2,m2]=s.fin.split(":").map(Number);
+          total+=(h2*60+m2)-(h1*60+m1);
+        }
+      });
+      total-=(entry.pause||0);
+      return Math.max(0,total);
+    }
+    function fmtMinutes(m){const h=Math.floor(m/60);const mm=m%60;return h+"h"+String(mm).padStart(2,"0")}
+
+    const weekTotalMin=weekEntries.reduce((s,w)=>s+calcDayMinutes(w.entry),0);
+    const weekWorkedDays=weekEntries.filter(w=>calcDayMinutes(w.entry)>0).length;
+
+    // Heures contractuelles
+    const contratH=DATA.heuresContrat||35;
+
+    // Overtime / undertime
+    const diffMin=weekTotalMin-contratH*60;
+    const diffLabel=diffMin>=0?"+"+fmtMinutes(diffMin):"-"+fmtMinutes(Math.abs(diffMin));
+    const diffColor=diffMin>=0?"#16A34A":"#DC2626";
+
+    area.innerHTML=`
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+        <div class="section-title">🕐 Heures de travail <span>Semaine du ${weekLabel}</span></div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button class="btn-secondary" onclick="_heuresWeekOffset=(_heuresWeekOffset||0)-1;render()">← Sem. préc.</button>
+          <button class="btn-secondary" onclick="_heuresWeekOffset=0;render()">Aujourd'hui</button>
+          <button class="btn-secondary" onclick="_heuresWeekOffset=(_heuresWeekOffset||0)+1;render()">Sem. suiv. →</button>
+          <div class="save-indicator" id="saveIndicator" style="background:rgba(22,163,74,.12);color:#16A34A">✓ Sauvegardé</div>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-label">Total semaine</div><div class="stat-value" style="color:#0D9488">${fmtMinutes(weekTotalMin)}</div></div>
+        <div class="stat-card"><div class="stat-label">Contrat</div><div class="stat-value">${contratH}h</div><div style="font-size:10px;color:#9CA3AF;margin-top:2px;cursor:pointer" onclick="editContratHeures()">✏ Modifier</div></div>
+        <div class="stat-card"><div class="stat-label">Différence</div><div class="stat-value" style="color:${diffColor}">${diffLabel}</div></div>
+        <div class="stat-card"><div class="stat-label">Jours travaillés</div><div class="stat-value">${weekWorkedDays}/7</div></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">📅 Détail de la semaine</span>
+          <button class="btn-add" onclick="exportHeuresWeek()">📋 Copier récap</button>
+        </div>
+        <div style="padding:0">
+          ${weekEntries.map((w,idx)=>{
+            const mins=calcDayMinutes(w.entry);
+            const slots=w.entry.slots||[];
+            const hasData=slots.length>0;
+            const bgColor=w.isToday?"#FFFBEB":mins>0?"#FAFBFC":"#fff";
+            return `<div style="padding:14px 20px;border-bottom:1px solid #F0F0F3;background:${bgColor}">
+              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div style="font-weight:700;font-size:15px;color:#0F1729;min-width:80px">${w.jour}</div>
+                  <div style="font-size:12px;color:#6B7280">${fmtDateShort(w.dateStr)}</div>
+                  ${w.isToday?`<span style="font-size:10px;padding:2px 8px;background:#0D9488;color:#fff;border-radius:10px;font-weight:600">Aujourd'hui</span>`:''}
+                </div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div style="font-size:18px;font-weight:700;color:${mins>0?'#0D9488':'#D1D5DB'}">${mins>0?fmtMinutes(mins):'—'}</div>
+                  <button class="btn-add" style="font-size:11px;padding:4px 10px" onclick="editDayHeures('${w.dateStr}',${idx})">✏ Saisir</button>
+                </div>
+              </div>
+              ${hasData?`<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center">
+                ${slots.map((s,si)=>`<div style="display:flex;align-items:center;gap:4px;font-size:12px;background:#F3F4F6;padding:4px 10px;border-radius:6px">
+                  <span style="color:#0D9488;font-weight:600">${s.debut||'?'}</span>
+                  <span style="color:#9CA3AF">→</span>
+                  <span style="color:#0D9488;font-weight:600">${s.fin||'?'}</span>
+                  ${s.club?'<span style="font-size:10px;color:#6B7280;margin-left:4px">'+s.club+'</span>':''}
+                </div>`).join("")}
+                ${w.entry.pause>0?'<span style="font-size:11px;color:#9CA3AF">☕ Pause '+w.entry.pause+'min</span>':''}
+                ${w.entry.note?'<span style="font-size:11px;color:#6B7280">💬 '+w.entry.note+'</span>':''}
+              </div>`:''}
+            </div>`;
+          }).join("")}
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">📊 Historique des semaines</span></div>
+        ${buildHeuresHistory()}
+      </div>
+
+      <div style="background:#F0F7FF;border:1px dashed #93C5FD;color:#1E40AF;padding:12px 16px;border-radius:8px;font-size:12px;margin-top:12px">
+        💡 <strong>Astuce :</strong> Pour chaque jour, tu peux saisir plusieurs créneaux (matin + après-midi), une pause, le club visité et une note. Le total se calcule automatiquement. Tu peux naviguer entre les semaines avec les flèches.
+      </div>
+    `;
+  }
+
+  // ═══ CALENDRIER ═══
+  else if(activeTab==="calendrier"){
+    if(!DATA.calEvents)DATA.calEvents=[];
+    const today=new Date();
+    const viewMonth=_calMonth!==undefined?_calMonth:today.getMonth();
+    const viewYear=_calYear!==undefined?_calYear:today.getFullYear();
+    const todayStr=today.toISOString().split("T")[0];
+    const JOURS_COURT=["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
+    const MOIS=["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+
+    // Build calendar grid
+    const firstDay=new Date(viewYear,viewMonth,1);
+    const lastDay=new Date(viewYear,viewMonth+1,0);
+    const startDow=(firstDay.getDay()+6)%7; // Monday=0
+    const daysInMonth=lastDay.getDate();
+    const prevLast=new Date(viewYear,viewMonth,0).getDate();
+
+    // Events this month
+    const monthEvents=DATA.calEvents.filter(function(e){return e.date&&e.date.startsWith(viewYear+"-"+String(viewMonth+1).padStart(2,"0"))});
+    // Today events for badge
+    const todayEvents=DATA.calEvents.filter(function(e){return e.date===todayStr});
+    // Upcoming alerts (next 7 days)
+    const next7=[];
+    for(var dd=0;dd<7;dd++){var d7=new Date(today);d7.setDate(today.getDate()+dd);next7.push(d7.toISOString().split("T")[0])}
+    const upcomingAlerts=DATA.calEvents.filter(function(e){return next7.indexOf(e.date)>=0&&e.alert});
+
+    // Stats
+    const totalEvents=DATA.calEvents.length;
+    const thisMonthCount=monthEvents.length;
+    const alertCount=DATA.calEvents.filter(function(e){return e.alert}).length;
+
+    // Build day cells
+    var dayCells="";
+    // Previous month days
+    for(var p=startDow-1;p>=0;p--){
+      var pDay=prevLast-p;
+      var pDate=new Date(viewYear,viewMonth-1,pDay).toISOString().split("T")[0];
+      var pEvts=DATA.calEvents.filter(function(e){return e.date===pDate});
+      dayCells+='<div class="cal-day other-month" onclick="showDayDetail(\''+pDate+'\')"><div class="cal-day-num">'+pDay+'</div>';
+      pEvts.slice(0,2).forEach(function(e){dayCells+='<div class="cal-event type-'+e.type+'">'+e.title+'</div>'});
+      dayCells+='</div>';
+    }
+    // Current month days
+    for(var d=1;d<=daysInMonth;d++){
+      var cDate=viewYear+"-"+String(viewMonth+1).padStart(2,"0")+"-"+String(d).padStart(2,"0");
+      var isToday=cDate===todayStr;
+      var dEvts=DATA.calEvents.filter(function(e){return e.date===cDate});
+      dayCells+='<div class="cal-day'+(isToday?' today':'')+'" onclick="showDayDetail(\''+cDate+'\')"><div class="cal-day-num">'+d+'</div>';
+      dEvts.slice(0,3).forEach(function(e){dayCells+='<div class="cal-event type-'+(e.type||"autre")+'" onclick="event.stopPropagation();editCalEvent('+e.id+')">'+( e.time?e.time.substring(0,5)+" ":"")+e.title+'</div>'});
+      if(dEvts.length>3)dayCells+='<div style="font-size:9px;color:#9CA3AF;text-align:center">+'+(dEvts.length-3)+' autre(s)</div>';
+      dayCells+='</div>';
+    }
+    // Next month days
+    var totalCells=startDow+daysInMonth;
+    var remaining=totalCells%7===0?0:7-totalCells%7;
+    for(var n=1;n<=remaining;n++){
+      var nDate=new Date(viewYear,viewMonth+1,n).toISOString().split("T")[0];
+      dayCells+='<div class="cal-day other-month" onclick="showDayDetail(\''+nDate+'\')"><div class="cal-day-num">'+n+'</div></div>';
+    }
+
+    area.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">'+
+      '<div class="section-title">📆 Calendrier <span>'+MOIS[viewMonth]+' '+viewYear+'</span></div>'+
+      '<div style="display:flex;gap:6px;align-items:center">'+
+        '<button class="btn-secondary" onclick="calNav(-1)">◀</button>'+
+        '<button class="btn-secondary" onclick="calNavToday()">Aujourd\x27hui</button>'+
+        '<button class="btn-secondary" onclick="calNav(1)">▶</button>'+
+        '<button class="btn-add" onclick="addCalEventForm()">+ Événement</button>'+
+        '<button class="btn-add" style="background:#DC2626" onclick="addCalAlertForm()">🚨 Alerte</button>'+
+        '<button class="btn-secondary" onclick="importIcsFile()" title="Importer un agenda Outlook exporté en .ics">📥 Importer Outlook (.ics)</button>'+
+      '</div></div>'+
+      '<div class="stats-grid">'+
+        '<div class="stat-card"><div class="stat-label">Ce mois</div><div class="stat-value" style="color:#0D9488">'+thisMonthCount+'</div></div>'+
+        '<div class="stat-card"><div class="stat-label">Aujourd\x27hui</div><div class="stat-value" style="color:#9333EA">'+todayEvents.length+'</div></div>'+
+        '<div class="stat-card"><div class="stat-label">Alertes actives</div><div class="stat-value" style="color:#DC2626">'+alertCount+'</div></div>'+
+        '<div class="stat-card"><div class="stat-label">Total événements</div><div class="stat-value">'+totalEvents+'</div></div>'+
+      '</div>'+
+      (upcomingAlerts.length>0?'<div style="background:#FEF2F2;border:2px solid #FECACA;border-radius:10px;padding:14px 20px;margin-bottom:16px">'+
+        '<div style="font-weight:700;color:#DC2626;margin-bottom:8px;font-size:14px">🚨 Alertes à venir (7 prochains jours)</div>'+
+        upcomingAlerts.map(function(a){return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #FECACA"><div><strong>'+a.title+'</strong><span style="font-size:12px;color:#6B7280;margin-left:8px">'+fmtDateShort(a.date)+(a.time?' à '+a.time:'')+(a.club?' · '+a.club:'')+'</span></div><div style="display:flex;gap:4px"><button class="btn-secondary" style="font-size:10px;padding:3px 8px" onclick="sendCalAlertWhatsApp('+a.id+')">💬 WhatsApp</button><button class="btn-secondary" style="font-size:10px;padding:3px 8px" onclick="showPopupAlert('+a.id+')">🔔 Popup</button></div></div>'}).join("")+
+      '</div>':'')+
+      '<div class="panel"><div class="panel-header"><span class="panel-title">'+MOIS[viewMonth]+' '+viewYear+'</span></div>'+
+        '<div class="cal-grid">'+
+          JOURS_COURT.map(function(j){return '<div class="cal-header">'+j+'</div>'}).join("")+
+          dayCells+
+        '</div>'+
+      '</div>'+
+      '<div class="panel"><div class="panel-header"><span class="panel-title">📋 Événements du mois ('+thisMonthCount+')</span></div>'+
+        (monthEvents.length===0?'<div class="empty-state" style="padding:20px"><div class="empty-state-icon">📆</div><div>Aucun événement ce mois</div></div>':
+        '<div style="overflow-x:auto"><table class="data-table"><thead><tr><th>Date</th><th>Heure</th><th>Événement</th><th>Type</th><th>Club</th><th>Alerte</th><th>Actions</th></tr></thead><tbody>'+
+        monthEvents.sort(function(a,b){return a.date.localeCompare(b.date)||(a.time||"").localeCompare(b.time||"")}).map(function(e){
+          var typeLbl={rdv:"RDV",visite:"Visite",deadline:"Deadline",reunion:"Réunion",formation:"Formation",alert:"🚨 ALERTE",autre:"Autre"};
+          return '<tr'+(e.type==="alert"?' style="background:#FEF2F2"':'')+'>'+
+            '<td style="font-weight:600">'+fmtDateShort(e.date)+'</td>'+
+            '<td>'+(e.time||'—')+'</td>'+
+            '<td style="font-weight:500">'+e.title+(e.description?' <span style="font-size:11px;color:#6B7280">— '+e.description.substring(0,40)+'</span>':'')+'</td>'+
+            '<td><span class="cal-event type-'+(e.type||"autre")+'" style="font-size:11px;padding:3px 8px">'+(typeLbl[e.type]||e.type)+'</span></td>'+
+            '<td style="font-size:12px">'+(e.club||'—')+'</td>'+
+            '<td>'+(e.alert?'<span style="color:#DC2626;font-weight:600">🔔 '+(e.alertBefore||0)+'min</span>':'—')+'</td>'+
+            '<td><div style="display:flex;gap:3px">'+
+              '<button class="btn-secondary" style="font-size:10px;padding:2px 6px" onclick="editCalEvent('+e.id+')">✏</button>'+
+              (e.alert?'<button class="btn-secondary" style="font-size:10px;padding:2px 6px" onclick="showPopupAlert('+e.id+')">🔔</button>':'')+
+              (e.alert?'<button class="btn-secondary" style="font-size:10px;padding:2px 6px" onclick="sendCalAlertWhatsApp('+e.id+')">💬</button>':'')+
+              '<button class="btn-danger" style="font-size:10px;padding:2px 6px" onclick="deleteCalEvent('+e.id+')">✕</button>'+
+            '</div></td></tr>'
+        }).join("")+
+        '</tbody></table></div>')+
+      '</div>';
+  }
+
+    // ═══ IMPORT EXCEL ═══
+  else if(activeTab==="imports"){
+    if(!DATA.importedFiles)DATA.importedFiles=[];
+    if(!DATA.importHistory)DATA.importHistory=[];
+    const hasPreview=!!_importPreview;
+    const isView=_importPreview&&_importPreview.isView;
+
+    let content=`
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+        <div class="section-title">📥 Import Excel <span>Salle par salle — pas de mélange</span></div>
+        <div class="save-indicator" id="saveIndicator" style="background:rgba(22,163,74,.12);color:#16A34A">✓ Sauvegardé</div>
+      </div>`;
+
+    if(!hasPreview){
+      content+=`
+        <div class="panel" style="border-left:4px solid #0D9488">
+          <div class="panel-header"><span class="panel-title">🏢 Étape 1 — Choisis la salle pour importer les tickets</span></div>
+          <div style="padding:20px">
+            <div style="background:#F0FDFA;border:1px solid #99F6E4;border-radius:8px;padding:12px 16px;font-size:13px;color:#0F766E;margin-bottom:16px">
+              ⚠️ <strong>Important :</strong> L'import de tickets se fait <strong>salle par salle</strong>. Choisis le club, puis importe le fichier Excel. Tous les tickets du fichier seront attribués à cette salle uniquement. <strong>Pas de mélange !</strong>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
+              `+buildImportClubCards()+`
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header"><span class="panel-title">📂 Import fichier générique (Équipe, Incidents, Avis, autre)</span></div>
+          <div style="padding:20px">
+            <div class="drop-zone" id="dropZone" onclick="startGenericImport()">
+              <div class="drop-zone-icon">📊</div>
+              <div class="drop-zone-text">Fichier non-ticket (Équipe, Incidents, Avis, consultation)</div>
+              <div class="drop-zone-sub">Formats : .xlsx, .xls, .csv · Détection auto du type</div>
+            </div>
+          </div>
+        </div>`;
+
+      const hist=(DATA.importHistory||[]).sort((a,b)=>new Date(b.date)-new Date(a.date));
+      if(hist.length>0){
+        content+=`<div class="panel"><div class="panel-header"><span class="panel-title">📜 Historique des imports (${hist.length})</span><button class="btn-danger" onclick="if(confirm('Vider ?')){DATA.importHistory=[];saveData();render()}">Vider</button></div>
+        <div style="overflow-x:auto"><table class="data-table"><thead><tr><th>Date</th><th>Fichier</th><th>Club</th><th>Type</th><th>Lignes</th></tr></thead><tbody>
+        ${hist.slice(0,30).map(h=>`<tr><td style="font-size:12px;color:#6B7280">${fmtDate(h.date)}</td><td><strong>${h.filename}</strong></td><td style="font-weight:600;color:#FE7F00">${h.club||'—'}</td><td><span class="badge-sm">${h.type}</span></td><td>${h.count}</td></tr>`).join("")}
+        </tbody></table></div></div>`;
+      }
+      if(DATA.importedFiles.length>0){
+        content+=`<div class="panel"><div class="panel-header"><span class="panel-title">📁 Fichiers consultables (${DATA.importedFiles.length})</span></div>
+        ${DATA.importedFiles.sort((a,b)=>new Date(b.dateImported)-new Date(a.dateImported)).map(f=>`<div class="imported-file"><div><div class="imported-file-name">📊 ${f.filename}</div><div class="imported-file-meta">${f.sheets.length} feuille${f.sheets.length>1?'s':''} · ${f.sheets.reduce((s,sh)=>s+sh.count,0)} lignes · ${fmtDate(f.dateImported)}</div></div><div style="display:flex;gap:6px"><button class="btn-secondary" onclick="viewImportedFile(${f.id})">👁</button><button class="btn-danger" onclick="deleteImportedFile(${f.id})">✕</button></div></div>`).join("")}
+        </div>`;
+      }
+    }else{
+      const sheet=_importPreview.sheets[_importSheetIdx];
+      const typeLabels={tickets:"📋 Tickets",team:"👥 Équipe",incidents:"⚡ Incidents",avis:"⭐ Avis Google",custom:"📁 Fichier générique",view:"👁 Consultation"};
+      const isTicket=_importPreview.detectedType==="tickets";
+      const targetClub=_importPreview.targetClub||"";
+
+      content+=`<div class="panel" style="${isTicket?'border-left:4px solid #0D9488':''}">
+        <div class="panel-header"><span class="panel-title">📄 ${_importPreview.filename}</span>
+          <div style="display:flex;gap:6px">${!isView?`<button class="btn-add" onclick="executeImport()">✓ Importer ${sheet.count} lignes${isTicket?' → '+targetClub:''}</button>`:''}
+            <button class="btn-secondary" onclick="cancelImport()">← Retour</button></div>
+        </div>
+        <div style="padding:12px 20px">
+          ${isTicket?`<div style="background:#F0FDFA;border:1px solid #99F6E4;border-radius:8px;padding:12px 16px;font-size:13px;color:#0F766E;margin-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            🏢 <strong>Salle cible : ${targetClub}</strong> — Tous les tickets seront importés dans <strong>${targetClub}</strong> uniquement.
+            <button class="btn-secondary" style="font-size:11px;margin-left:auto" onclick="cancelImport()">Changer de salle</button>
+          </div>`:''}
+          ${_importPreview.sheets.length>1?`<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">${_importPreview.sheets.map((s,i)=>`<button class="sheet-tab ${i===_importSheetIdx?'active':''}" onclick="switchImportSheet(${i})">${s.name} (${s.count})</button>`).join("")}</div>`:''}
+          ${!isView?`<div class="import-mapping">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px">
+              <div><strong>Type :</strong> ${typeLabels[_importPreview.detectedType]||_importPreview.detectedType}</div>
+              ${!isTicket?`<div style="display:flex;gap:4px">${["tickets","team","incidents","avis","custom"].map(t=>`<button class="sheet-tab ${_importPreview.detectedType===t?'active':''}" onclick="changeImportType('${t}')">${typeLabels[t]}</button>`).join("")}</div>`:''}
+            </div>
+            ${_importPreview.detectedType!=="custom"?`<div style="font-size:12px;color:#6B7280;margin-bottom:8px">Colonnes :</div>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              ${Object.entries(_importPreview.mapping||{}).filter(([f])=>!(isTicket&&f==="club")).map(([field,col])=>`<div class="mapping-row"><span class="mapping-label">${field}</span><span class="mapping-arrow">→</span>
+                <select class="form-select" style="flex:1;font-size:12px;padding:4px 8px" onchange="changeMapping('${field}',this.value)"><option value="">(ignorer)</option>${sheet.headers.map(h=>`<option ${h===col?'selected':''}>${h}</option>`).join("")}</select></div>`).join("")}
+              ${isTicket?`<div class="mapping-row"><span class="mapping-label">club</span><span class="mapping-arrow">→</span><span style="font-weight:700;color:#FE7F00;font-size:13px">🔒 ${targetClub}</span></div>`:''}
+            </div>`:''}
+          </div>`:''}
+        </div>
+      </div>
+      <div class="import-preview"><div class="import-preview-header"><span>${sheet.name} — ${sheet.count} lignes</span><span style="font-size:11px;color:#9CA3AF">20 premières lignes</span></div>
+        <div style="overflow-x:auto;max-height:500px;overflow-y:auto"><table>
+          <thead><tr>${isTicket?'<th style="background:#FFF7ED;color:#FE7F00">🏢 Salle</th>':''}${sheet.headers.map(h=>`<th>${h}</th>`).join("")}</tr></thead>
+          <tbody>${sheet.rows.slice(0,20).map(row=>`<tr>${isTicket?`<td style="font-weight:600;color:#FE7F00">${targetClub}</td>`:''}${sheet.headers.map(h=>`<td>${String(row[h]||'').substring(0,60)}</td>`).join("")}</tr>`).join("")}
+          ${sheet.count>20?`<tr><td colspan="${sheet.headers.length+(isTicket?1:0)}" style="text-align:center;color:#9CA3AF;padding:10px">... ${sheet.count-20} lignes restantes</td></tr>`:''}</tbody>
+        </table></div></div>`;
+    }
+    area.innerHTML=content;
+    setTimeout(()=>{const dz=document.getElementById("dropZone");if(!dz)return;dz.addEventListener("dragover",e=>{e.preventDefault();dz.classList.add("dragover")});dz.addEventListener("dragleave",()=>dz.classList.remove("dragover"));dz.addEventListener("drop",e=>{e.preventDefault();dz.classList.remove("dragover");_importSelectedClub='__generic__';if(e.dataTransfer.files.length>0)handleImportFile(e.dataTransfer.files[0])})},100);
+  }
+
+  else if(activeTab==="config"){
+    area.innerHTML=`
+      <div class="section-title">⚙️ Configuration du tableau de bord <span>Personnalise l'ordre et la visibilité des modules</span></div>
+
+      <div class="config-section">
+        <div style="font-weight:600;font-size:14px;margin-bottom:12px;color:#0F1729">Modules du tableau de bord</div>
+        <div style="font-size:12px;color:#6B7280;margin-bottom:14px">💡 Glisse-déposez les modules pour les réorganiser. Clique sur le bouton pour afficher ou masquer un module.</div>
+        <div id="modulesList">
+          ${DATA.modules.map(m=>`<div class="module-row" draggable="true" data-module-id="${m.id}" ondragstart="handleModuleDragStart(event)" ondragend="handleModuleDragEnd(event)" ondragover="handleModuleDragOver(event)" ondrop="handleModuleDrop(event)" ondragleave="handleModuleDragLeave(event)">
+            <span class="module-handle">⋮⋮</span>
+            <span class="module-name">${m.name}</span>
+            <button class="module-toggle ${m.visible?'on':'off'}" onclick="toggleModule('${m.id}')">${m.visible?'✓ Visible':'— Masqué'}</button>
+          </div>`).join("")}
+        </div>
+        <div style="margin-top:16px;display:flex;gap:8px">
+          <button class="btn-secondary" onclick="resetModules()">↻ Reinitialiser ordre par defaut</button>
+        </div>
+      </div>
+
+      <div class="config-section">
+        <div style="font-weight:600;font-size:14px;margin-bottom:12px;color:#0F1729">📱 Alertes téléphone (SMS / WhatsApp)</div>
+        <div style="font-size:12px;color:#6B7280;margin-bottom:14px">Configure ton numéro pour recevoir les alertes urgentes directement sur ton téléphone via SMS ou WhatsApp.</div>
+        <div class="form-group"><label class="form-label">Numéro de téléphone</label><input class="form-input" id="as_phone" value="${DATA.alertSettings?.phone||''}" placeholder="+33 6 xx xx xx xx" style="max-width:300px"></div>
+        <div style="display:flex;gap:14px;margin-top:10px;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" id="as_sms" ${DATA.alertSettings?.smsEnabled?'checked':''}> 📱 Alertes SMS</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" id="as_wa" ${DATA.alertSettings?.whatsappEnabled?'checked':''}> 💬 Alertes WhatsApp</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" id="as_email" ${DATA.alertSettings?.emailAlerts!==false?'checked':''}> ✉ Alertes Email (notifications)</label>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button class="btn-add" onclick="saveAlertSettings()">💾 Sauvegarder</button>
+          <button class="btn-secondary" onclick="testPhoneAlert()">🔔 Envoyer un test</button>
+        </div>
+      </div>
+
+      <div class="config-section">
+        <div style="font-weight:600;font-size:14px;margin-bottom:12px;color:#0F1729">⭐ Avis Google — Mise à jour automatique</div>
+        <div style="font-size:12px;color:#6B7280;margin-bottom:14px">Entre ta clé API Google Maps pour que les avis se rafraîchissent automatiquement à chaque ouverture du dashboard. <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:#0D9488">Obtenir une clé API</a> (active "Places API" + "Maps JavaScript API", gratuit jusqu'à 200$/mois).</div>
+        <div class="form-group"><label class="form-label">Clé API Google Maps</label><input class="form-input" type="password" id="cfg_gapi" value="${DATA.googleApiKey||''}" placeholder="AIza..." style="max-width:400px;font-family:monospace"></div>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+          <button class="btn-add" onclick="saveGoogleApiKey()">💾 Sauvegarder la clé</button>
+          <button class="btn-secondary" onclick="testGoogleApi()">🔄 Tester / Rafraîchir maintenant</button>
+          <span id="googleApiStatus" style="font-size:12px;padding:6px 0;color:#6B7280">${DATA.googleApiKey?'🟢 Clé configurée — MAJ auto activée':'🔴 Pas de clé — MAJ manuelle'}</span>
+        </div>
+        <div style="margin-top:10px;font-size:11px;color:#9CA3AF">Dernière MAJ auto: ${DATA.lastGoogleAutoRefresh?fmtDate(DATA.lastGoogleAutoRefresh):'Jamais'}</div>
+      </div>
+
+      <div class="config-section">
+        <div style="font-weight:600;font-size:14px;margin-bottom:12px;color:#0F1729">Gestion des données</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-secondary" onclick="exportData()">💾 Sauvegarder les données (JSON)</button>
+          <button class="btn-secondary" onclick="importData()">📂 Importer des données</button>
+          <button class="btn-danger" onclick="resetAllData()" style="padding:6px 14px">⚠ Réinitialiser tout</button>
+        </div>
+      </div>
+
+      <div class="config-section">
+        <div style="font-weight:600;font-size:14px;margin-bottom:12px;color:#0F1729">Informations</div>
+        <div style="font-size:13px;color:#6B7280;line-height:1.8">
+          <div>📊 ${DATA.clubs.length} clubs · ${DATA.team.length} agents · ${DATA.tickets.length} tickets</div>
+          <div>🏥 ${agentsEnArret().length} agents en arrêt actif</div>
+          <div>📍 ${DATA.salles.length} salles configurées</div>
+          <div>💾 Données sauvegardées automatiquement (persistant entre sessions)</div>
+        </div>
+      </div>
+    `;
+  }
+}
+
+// ══════════════════════════════════════════
+// ACTIONS ARRÊTS
+// ══════════════════════════════════════════
+window.addArretForm=function(type){
+  const today=new Date().toISOString().split("T")[0];
+  const title=type==="maladie"?"🏥 Nouvel arrêt maladie":"⚠ Nouvel accident du travail";
+  showModal(`<div class="form-title">${title}</div>
+    <div class="form-group"><label class="form-label">Agent concerné</label><select class="form-select" id="fArA"><option value="">-- Sélectionner --</option>${agentOpts()}</select></div>
+    <div style="display:flex;gap:10px">
+      <div class="form-group" style="flex:1"><label class="form-label">Date de début *</label><input class="form-input" type="date" id="fArD" value="${today}" required></div>
+      <div class="form-group" style="flex:1"><label class="form-label">Date de fin</label><input class="form-input" type="date" id="fArF" placeholder="(laisser vide si en cours)"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Note (motif, précisions)</label><textarea class="form-textarea" id="fArN" placeholder="${type==="maladie"?"Ex: Grippe, arrêt de 5 jours, certificat transmis...":"Ex: Chute sur le lieu de travail, déclaration faite, volet 3 reçu..."}"></textarea></div>
+    <div class="form-actions"><button class="form-cancel" onclick="closeModal()">Annuler</button><button class="form-submit" onclick="saveArret('${type}')">Enregistrer</button></div>`);
+};
+window.saveArret=function(type){
+  const agentId=document.getElementById("fArA").value;
+  const dateDebut=document.getElementById("fArD").value;
+  if(!agentId){showToast("⚠ Sélectionne un agent");return}
+  if(!dateDebut){showToast("⚠ Date de début requise");return}
+  DATA.arrets.push({
+    id:nextId(DATA.arrets),
+    type:type,
+    agentId:parseInt(agentId),
+    dateDebut:dateDebut,
+    dateFin:document.getElementById("fArF").value,
+    note:document.getElementById("fArN").value,
+    dateCreated:new Date().toISOString()
+  });
+  logChange("Arrêt "+type+" ajouté : "+getAgentName(parseInt(agentId)));
+  addNotification((type==="maladie"?"🏥 Maladie":"⚠ AT")+" — "+getAgentName(parseInt(agentId)),"Début: "+dateDebut,"info");
+  saveData();closeModal();render();
+  showToast(`✓ Arrêt ${type==="maladie"?"maladie":"AT"} enregistré`);
+};
+window.editArret=function(id){
+  const a=DATA.arrets.find(x=>x.id===id);
+  const title=a.type==="maladie"?"🏥 Modifier arrêt maladie":"⚠ Modifier AT";
+  showModal(`<div class="form-title">${title}</div>
+    <div class="form-group"><label class="form-label">Agent</label><select class="form-select" id="fArA">${agentOpts(a.agentId)}</select></div>
+    <div class="form-group"><label class="form-label">Type</label><select class="form-select" id="fArT"><option value="maladie" ${a.type==="maladie"?"selected":""}>🏥 Arrêt maladie</option><option value="AT" ${a.type==="AT"?"selected":""}>⚠ Accident du travail</option></select></div>
+    <div style="display:flex;gap:10px">
+      <div class="form-group" style="flex:1"><label class="form-label">Date début</label><input class="form-input" type="date" id="fArD" value="${a.dateDebut}"></div>
+      <div class="form-group" style="flex:1"><label class="form-label">Date fin</label><input class="form-input" type="date" id="fArF" value="${a.dateFin||''}"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Note</label><textarea class="form-textarea" id="fArN">${a.note||''}</textarea></div>
+    <div class="form-actions"><button class="form-cancel" onclick="closeModal()">Annuler</button><button class="form-submit" onclick="updateArret(${id})">Enregistrer</button></div>`);
+};
+window.updateArret=function(id){
+  const a=DATA.arrets.find(x=>x.id===id);
+  a.agentId=parseInt(document.getElementById("fArA").value);
+  a.type=document.getElementById("fArT").value;
+  a.dateDebut=document.getElementById("fArD").value;
+  a.dateFin=document.getElementById("fArF").value;
+  a.note=document.getElementById("fArN").value;
+  saveData();closeModal();render();
+};
+window.deleteArret=function(id){
+  if(confirm("Supprimer cet arrêt ?")){
+    DATA.arrets=DATA.arrets.filter(x=>x.id!==id);saveData();render();
+  }
+};
+
+// ══════════════════════════════════════════
+// MODULE CONFIG ACTIONS
+// ══════════════════════════════════════════
+let _draggedModuleConfig=null;
+window.handleModuleDragStart=function(e){_draggedModuleConfig=e.currentTarget.dataset.moduleId;e.currentTarget.classList.add("dragging");e.dataTransfer.effectAllowed="move"};
+window.handleModuleDragEnd=function(e){e.currentTarget.classList.remove("dragging");document.querySelectorAll(".module-row.drag-over").forEach(el=>el.classList.remove("drag-over"))};
+window.handleModuleDragOver=function(e){e.preventDefault();e.currentTarget.classList.add("drag-over")};
+window.handleModuleDragLeave=function(e){e.currentTarget.classList.remove("drag-over")};
+window.handleModuleDrop=function(e){
+  e.preventDefault();
+  e.currentTarget.classList.remove("drag-over");
+  const targetId=e.currentTarget.dataset.moduleId;
+  if(!_draggedModuleConfig||_draggedModuleConfig===targetId)return;
+  const fromIdx=DATA.modules.findIndex(m=>m.id===_draggedModuleConfig);
+  const toIdx=DATA.modules.findIndex(m=>m.id===targetId);
+  if(fromIdx<0||toIdx<0)return;
+  const[moved]=DATA.modules.splice(fromIdx,1);
+  DATA.modules.splice(toIdx,0,moved);
+  saveData();
+  _draggedModuleConfig=null;
+  render();
+};
+window.toggleModule=function(id){const m=DATA.modules.find(x=>x.id===id);m.visible=!m.visible;saveData();render()};
+window.resetModules=function(){if(confirm("Réinitialiser l'ordre des modules ?")){DATA.modules=JSON.parse(JSON.stringify(DEFAULT_MODULES));saveData();render()}};
+
+window.exportData=function(){
+  const blob=new Blob([JSON.stringify(DATA,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;a.download=`dashboard-basicfit-${new Date().toISOString().split("T")[0]}.json`;a.click();
+  showToast("✓ Données exportées");
+};
+window.importData=function(){
+  const inp=document.createElement("input");inp.type="file";inp.accept="application/json";
+  inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{DATA=JSON.parse(ev.target.result);saveData();render();showToast("✓ Données importées")}catch(err){showToast("⚠ Fichier invalide")}};r.readAsText(f)};
+  inp.click();
+};
+window.resetAllData=function(){if(confirm("Réinitialiser TOUTES les données ? Cette action est irréversible.")){localStorage.removeItem("bf_dash_s77_v1");DATA=JSON.parse(JSON.stringify(DEFAULT_DATA));saveData();render();showToast("✓ Données réinitialisées")}};
+
+// ══════════════════════════════════════════
+// OTHER ACTIONS
+// ══════════════════════════════════════════
+window.editClub=function(id){const c=DATA.clubs.find(x=>x.id===id);showModal(`<div class="form-title">Modifier ${c.name}</div><div class="form-group"><label class="form-label">Nom</label><input class="form-input" id="fCN" value="${c.name}"></div><div class="form-group"><label class="form-label">Code club</label><input class="form-input" id="fCC" value="${c.code}"></div><div class="form-group"><label class="form-label">Adresse</label><input class="form-input" id="fCF" value="${c.fullName||''}"></div><div class="form-group"><label class="form-label">Agents</label><input class="form-input" type="number" id="fCA" value="${c.agents}"></div><div class="form-group"><label class="form-label">Statut</label><select class="form-select" id="fCS"><option value="ok" ${c.status==='ok'?'selected':''}>Opérationnel</option><option value="alert" ${c.status==='alert'?'selected':''}>Attention</option><option value="travaux" ${c.status==='travaux'?'selected':''}>Travaux</option></select></div><div class="form-actions"><button class="form-cancel" onclick="closeModal()">Annuler</button><button class="form-submit" onclick="saveClub(${id})">Enregistrer</button></div>`)};
+window.saveClub=function(id){const c=DATA.clubs.find(x=>x.id===id);c.name=document.getElementById("fCN").value;c.code=document.getElementById("fCC").value;c.fullName=document.getElementById("fCF").value;c.agents=parseInt(document.getElementById("fCA").value)||0;c.status=document.getElementById("fCS").value;saveData();closeModal();render()};
+
+window.addAgentForm=function(){_selectedColor="blue";showModal(`<div class="form-title">Nouvel agent</div><div class="form-group"><label class="form-label">Nom</label><input class="form-input" id="fAN"></div><div class="form-group"><label class="form-label">Téléphone (optionnel)</label><input class="form-input" id="fATEL" placeholder="06 12 34 56 78"></div><div class="form-group"><label class="form-label">Club</label><select class="form-select" id="fAC">${clubOpts()}</select></div><div class="form-group"><label class="form-label">Salle</label><select class="form-select" id="fAS">${salleOpts()}</select></div><div class="form-group"><label class="form-label">Poste / Contrat</label><input class="form-input" id="fAR" value="Temps plein 35h"></div><div class="form-group"><label class="form-label">Statut</label><select class="form-select" id="fAST">${statutOpts("présent")}</select></div><div class="form-group"><label class="form-label">Rang</label><input class="form-input" type="number" id="fARK" value="1" min="1"></div><div class="form-group"><label class="form-label">Couleur</label>${colorSwatches("blue")}</div><div class="form-group"><label class="form-label">Note</label><input class="form-input" id="fANT"></div><div class="form-actions"><button class="form-cancel" onclick="closeModal()">Annuler</button><button class="form-submit" onclick="saveAgent()">Ajouter</button></div>`)};
+window.saveAgent=function(){DATA.team.push({id:nextId(DATA.team),name:document.getElementById("fAN").value,tel:document.getElementById("fATEL").value,club:document.getElementById("fAC").value,salle:document.getElementById("fAS").value,role:document.getElementById("fAR").value||"Agent",status:document.getElementById("fAST").value,rank:parseInt(document.getElementById("fARK").value)||99,color:_selectedColor,note:document.getElementById("fANT").value});saveData();closeModal();render()};
+window.editAgent=function(id){const t=DATA.team.find(x=>x.id===id);_selectedColor=t.color;showModal(`<div class="form-title">Modifier ${t.name}</div><div class="form-group"><label class="form-label">Nom</label><input class="form-input" id="fAN" value="${t.name}"></div><div class="form-group"><label class="form-label">Téléphone (optionnel)</label><input class="form-input" id="fATEL" value="${t.tel||''}" placeholder="06 12 34 56 78"></div><div class="form-group"><label class="form-label">Club</label><select class="form-select" id="fAC">${clubOpts(t.club)}</select></div><div class="form-group"><label class="form-label">Salle</label><select class="form-select" id="fAS">${salleOpts(t.salle)}</select></div><div class="form-group"><label class="form-label">Poste</label><input class="form-input" id="fAR" value="${t.role}"></div><div class="form-group"><label class="form-label">Statut</label><select class="form-select" id="fAST">${statutOpts(t.status)}</select></div><div class="form-group"><label class="form-label">Rang</label><input class="form-input" type="number" id="fARK" value="${t.rank}"></div><div class="form-group"><label class="form-label">Couleur</label>${colorSwatches(t.color)}</div><div class="form-group"><label class="form-label">Note</label><input class="form-input" id="fANT" value="${t.note||''}"></div><div style="font-size:12px;color:#9CA3AF;padding:10px;background:#FAFBFC;border-radius:6px;margin-bottom:14px">💡 Pour déclarer un arrêt maladie ou AT avec dates, utilise l'onglet <strong>Maladie & AT</strong>.</div><div class="form-actions"><button class="form-cancel" onclick="closeModal()">Annuler</button><button class="form-submit" onclick="updateAgent(${id})">Enregistrer</button></div>`)};
+window.updateAgent=function(id){const t=DATA.team.find(x=>x.id===id);t.name=document.getElementById("fAN").value;t.tel=document.getElementById("fATEL").value;t.club=document.getElementById("fAC").value;t.salle=document.getElementById("fAS").value;t.role=document.getElementById("fAR").value;t.status=document.getElementById("fAST").value;t.rank=parseInt(document.getElementById("fARK").value)||99;t.color=_selectedColor;t.note=document.getElementById("fANT").value;saveData();closeModal();render()};
+window.deleteTeam=function(id){if(confirm("Supprimer ?")){DATA.team=DATA.team.filter(x=>x.id!==id);saveData();render()}};
+window.moveRank=function(id,dir){const t=DATA.team.find(x=>x.id===id);t.rank=Math.max(1,t.rank+dir);saveData();render()};
+
+window.manageSalles=function(){showModal(`<div class="form-title">Gérer les salles</div><div style="margin-bottom:14px">${DATA.salles.map((s,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #F0F0F3"><span style="flex:1;font-size:14px">${s}</span><button class="btn-danger" onclick="removeSalle(${i})">✕</button></div>`).join("")}</div><div class="form-group"><label class="form-label">Ajouter</label><div style="display:flex;gap:8px"><input class="form-input" id="fNewSalle" style="flex:1"><button class="btn-add" onclick="addSalle()">+</button></div></div><div class="form-actions"><button class="form-submit" onclick="closeModal();render();">Fermer</button></div>`)};
+window.addSalle=function(){const v=document.getElementById("fNewSalle").value.trim();if(v&&!DATA.salles.includes(v)){DATA.salles.push(v);saveData();manageSalles()}};
+window.removeSalle=function(i){const name=DATA.salles[i];DATA.team.filter(t=>t.salle===name).forEach(t=>t.salle="Non affecté");DATA.salles.splice(i,1);saveData();manageSalles()};
+
+window.addVisitForm=function(){showModal(`<div class="form-title">Nouvelle visite</div><div class="form-group"><label class="form-label">Club</label><select class="form-select" id="fVC">${clubOpts()}</select></div><div class="form-group"><label class="form-label">Type</label><input class="form-input" id="fVT"></div><div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="fVD" value="${new Date().toISOString().split('T')[0]}"></div><div style="display:flex;gap:10px"><div class="form-group" style="flex:1"><label class="form-label">Heure arrivée</label><input class="form-input" type="time" id="fVHA"></div><div class="form-group" style="flex:1"><label class="form-label">Heure sortie</label><input class="form-input" type="time" id="fVHS"></div></div><div class="form-actions"><button class="form-cancel" onclick="closeModal()">Annuler</button><button class="form-submit" onclick="saveVisit()">Ajouter</button></div>`)};
+window.saveVisit=function(){DATA.visits.push({id:nextId(DATA.visits),club:document.getElementById("fVC").value,type:document.getElementById("fVT").value,date:document.getElementById("fVD").value,heureArrivee:document.getElementById("fVHA").value,heureSortie:document.getElementById("fVHS").value,done:false});saveData();closeModal();render()};
+window.markVisitDone=function(id){const v=DATA.visits.find(x=>x.id===id);v.done=true;if(!v.heureSortie){const now=new Date();v.heureSortie=`${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`}saveData();render()};
+window.editVisit=function(id){const v=DATA.visits.find(x=>x.id===id);showModal(`<div class="form-title">Modifier visite</div><div class="form-group"><label class="form-label">Club</label><select class="form-select" id="fVC">${clubOpts(v.club)}</select></div><div class="form-group"><label class="form-label">Type</label><input class="form-input" id="fVT" value="${v.type}"></div><div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="fVD" value="${v.date}"></div><div style="display:flex;gap:10px"><div class="form-group" style="flex:1"><label class="form-label">Arrivée</label><input class="form-input" type="time" id="fVHA" value="${v.heureArrivee||''}"></div><div class="form-group" style="flex:1"><label class="form-label">Sortie</label><input class="form-input" type="time" id="fVHS" value="${v.heureSortie||''}"></div></div><div class="form-group"><label class="form-label">Statut</label><select class="form-select" id="fVDN"><option value="false" ${!v.done?'selected':''}>À venir</option><option value="true" ${v.done?'selected':''}>Effectuée</option></select></div><div class="form-actions"><button class="form-cancel" onclick="closeModal()">Annuler</button><button class="form-submit" onclick="updateVisit(${id})">Enregistrer</button></div>`)};
+window.updateVisit=function(id){const v=DATA.visits.find(x=>x.id===id);v.club=document.getElementById("fVC").value;v.type=document.getElementById("fVT").value;v.date=document.getElementById("fVD").value;v.heureArrivee=document.getElementById("fVHA").value;v.heureSortie=document.getElementById("fVHS").value;v.done=document.getElementById("fVDN").value==="true";saveData();closeModal();render()};
+window.deleteVisit=function(id){DATA.visits=DATA.visits.filter(x=>x.id!==id);saveData();render()};
+
+window.addIncidentForm=function(){showModal(`<div class="form-title">Nouvel incident</div><div class="form-group"><label class="form-label">Club</label><select class="form-select" id="fIC">${clubOpts()}</select></div><div class="form-group"><label class="form-label">Type</label><input class="form-input" id="fIT"></div><div class="form-group"><label class="form-label">Agent</label><input class="form-input" id="fIA"></div><div class="form-group"><label class="form-label">Sévérité</label><select class="form-select" id="fIS"><option value="haute">Haute</option><option value="moyenne" selected>Moyenne</option><option value="basse">Basse</option></select></div><div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="fID" value="${new Date().toISOString().split('T')[0]}"></div><div class="form-actions"><button class="form-cancel" onclick="closeModal()">Annuler</button><button class="form-submit" onclick="saveIncident()">Ajouter</button></div>`)};
+window.saveIncident=function(){DATA.incidents.push({id:nextId(DATA.incidents),club:document.getElementById("fIC").value,type:document.getElementById("fIT").value,agent:document.getElementById("fIA").value||"—",severity:document.getElementById("fIS").value,date:document.getElementById("fID").value,resolved:false});logChange("Incident ajouté : "+document.getElementById("fIT").value+" @ "+document.getElementById("fIC").value);addNotification("🚨 Nouvel incident",document.getElementById("fIT").value+" au "+document.getElementById("fIC").value,document.getElementById("fIS").value==="haute"?"urgent":"info");saveData();closeModal();render()};
+window.resolveIncident=function(id){const inc=DATA.incidents.find(x=>x.id===id);inc.resolved=true;logChange("Incident résolu : "+inc.type+" @ "+inc.club);addNotification("✅ Incident résolu",inc.type+" au "+inc.club,"info");saveData();render()};
+window.deleteIncident=function(id){DATA.incidents=DATA.incidents.filter(x=>x.id!==id);saveData();render()};
+
+window.addTicketForm=function(presetClub){showModal(`<div class="form-title">Nouveau ticket</div><div class="form-group"><label class="form-label">N° Ticket</label><input class="form-input" id="fKN" placeholder="#75946554"></div><div class="form-group"><label class="form-label">Référence</label><input class="form-input" id="fKR"></div><div class="form-group"><label class="form-label">Club</label><select class="form-select" id="fKC">${clubOpts()}</select></div><div class="form-group"><label class="form-label">Salle</label><select class="form-select" id="fKSA">${salleOpts()}</select></div><div class="form-group"><label class="form-label">Problème</label><input class="form-input" id="fKT"></div><div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="fKD"></textarea></div><div class="form-group"><label class="form-label">Intervenant</label><input class="form-input" id="fKI"></div><div class="form-group"><label class="form-label">Priorité</label><select class="form-select" id="fKP"><option value="urgente">Urgente</option><option value="haute">Haute</option><option value="normale" selected>Normale</option><option value="basse">Basse</option></select></div><div class="form-group"><label class="form-label">Statut</label><select class="form-select" id="fKS"><option value="ouvert" selected>Ouvert</option><option value="encours">En cours</option><option value="attente">En attente</option><option value="planifie">Planifié</option><option value="termine">Terminé</option></select></div><div class="form-group"><label class="form-label">Date création</label><input class="form-input" type="date" id="fKDC" value="${new Date().toISOString().split('T')[0]}"></div><div class="form-actions"><button class="form-cancel" onclick="closeModal()">Annuler</button><button class="form-submit" onclick="saveTicket()">Créer</button></div>`);if(presetClub){setTimeout(()=>{const sel=document.getElementById('fKC');if(sel){for(let i=0;i<sel.options.length;i++){if(sel.options[i].value===presetClub||sel.options[i].text===presetClub){sel.selectedIndex=i;break}}}},50)}};
+window.saveTicket=function(){const title=document.getElementById("fKT").value;const club=document.getElementById("fKC").value;const prio=document.getElementById("fKP").value;DATA.tickets.push({id:nextId(DATA.tickets),number:document.getElementById("fKN").value,ref:document.getElementById("fKR").value,club:club,salle:document.getElementById("fKSA").value,title:title,description:document.getElementById("fKD").value,intervenant:document.getElementById("fKI").value,priority:prio,status:document.getElementById("fKS").value,dateCreated:document.getElementById("fKDC").value,dateTarget:""});logChange("Ticket créé : "+title+" @ "+club);addNotification("🔧 Nouveau ticket",title+" au "+club+" — Priorité: "+prio,prio==="urgente"?"urgent":"info");saveData();closeModal();render()};
+window.editTicket=function(id){const t=DATA.tickets.find(x=>x.id===id);showModal(`<div class="form-title">Modifier ${t.number}</div><div class="form-group"><label class="form-label">N°</label><input class="form-input" id="fKN" value="${t.number}"></div><div class="form-group"><label class="form-label">Référence</label><input class="form-input" id="fKR" value="${t.ref||''}"></div><div class="form-group"><label class="form-label">Club</label><select class="form-select" id="fKC">${clubOpts(t.club)}</select></div><div class="form-group"><label class="form-label">Salle</label><select class="form-select" id="fKSA">${salleOpts(t.salle)}</select></div><div class="form-group"><label class="form-label">Sujet</label><input class="form-input" id="fKT" value="${t.title.replace(/"/g,'&quot;')}"></div><div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="fKD">${t.description}</textarea></div><div class="form-group"><label class="form-label">Intervenant</label><input class="form-input" id="fKI" value="${t.intervenant}"></div><div class="form-group"><label class="form-label">Priorité</label><select class="form-select" id="fKP"><option value="urgente" ${t.priority==='urgente'?'selected':''}>Urgente</option><option value="haute" ${t.priority==='haute'?'selected':''}>Haute</option><option value="normale" ${t.priority==='normale'?'selected':''}>Normale</option><option value="basse" ${t.priority==='basse'?'selected':''}>Basse</option></select></div><div class="form-group"><label class="form-label">Statut</label><select class="form-select" id="fKS"><option value="ouvert" ${t.status==='ouvert'?'selected':''}>Ouvert</option><option value="encours" ${t.status==='encours'?'selected':''}>En cours</option><option value="attente" ${t.status==='attente'?'selected':''}>En attente</option><option value="planifie" ${t.status==='planifie'?'selected':''}>Planifié</option><option value="termine" ${t.status==='termine'?'selected':''}>Terminé</option></select></div><div class="form-group"><label class="form-label">Date création</label><input class="form-input" type="date" id="fKDC" value="${t.dateCreated}"></div><div class="form-actions"><button class="form-cancel" onclick="closeModal()">Annuler</button><button class="form-submit" onclick="updateTicket(${id})">Enregistrer</button></div>`)};
+window.updateTicket=function(id){const t=DATA.tickets.find(x=>x.id===id);t.number=document.getElementById("fKN").value;t.ref=document.getElementById("fKR").value;t.club=document.getElementById("fKC").value;t.salle=document.getElementById("fKSA").value;t.title=document.getElementById("fKT").value;t.description=document.getElementById("fKD").value;t.intervenant=document.getElementById("fKI").value;t.priority=document.getElementById("fKP").value;t.status=document.getElementById("fKS").value;t.dateCreated=document.getElementById("fKDC").value;saveData();closeModal();render()};
+window.changeTicketStatus=function(id){const t=DATA.tickets.find(x=>x.id===id);showModal(`<div class="form-title">Statut ${t.number}</div><div class="form-group"><label class="form-label">Statut</label><select class="form-select" id="fKNS"><option value="ouvert" ${t.status==='ouvert'?'selected':''}>Ouvert</option><option value="encours" ${t.status==='encours'?'selected':''}>En cours</option><option value="attente" ${t.status==='attente'?'selected':''}>En attente</option><option value="planifie" ${t.status==='planifie'?'selected':''}>Planifié</option><option value="termine" ${t.status==='termine'?'selected':''}>Terminé</option></select></div><div class="form-actions"><button class="form-cancel" onclick="closeModal()">Annuler</button><button class="form-submit" onclick="DATA.tickets.find(x=>x.id===${id}).status=document.getElementById('fKNS').value;saveData();closeModal();render();">Enregistrer</button></div>`)};
+window.deleteTicket=function(id){if(confirm("Supprimer ?")){DATA.tickets=DATA.tickets.filter(x=>x.id!==id);saveData();render()}};
+
+// ══════════════════════════════════════════
+// FOLLOWUP SYSTEM - Relances tickets urgents
+// ══════════════════════════════════════════
+function getOverdueFollowups(){
+  const today=new Date().toISOString().split("T")[0];
+  return (DATA.followups||[]).filter(f=>!f.done&&f.nextRelance&&f.nextRelance<=today);
+}
+function getTicketFollowups(ticketId){
+  return (DATA.followups||[]).filter(f=>f.ticketId===ticketId).sort((a,b)=>new Date(b.date)-new Date(a.date));
+}
+window.addFollowupForm=function(ticketId){
+  const t=DATA.tickets.find(x=>x.id===ticketId);
+  const today=new Date().toISOString().split("T")[0];
+  const nextWeek=new Date(Date.now()+7*86400000).toISOString().split("T")[0];
+  showModal(`<div class="form-title">🔄 Relance — ${t?t.number:''}</div>
+    <div style="background:#F9FAFB;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:13px"><strong>${t?t.title:''}</strong><br><span style="color:#6B7280">${t?t.club:''} · ${t?t.salle:''}</span></div>
+    <div class="form-group"><label class="form-label">Action réalisée</label><textarea class="form-textarea" id="fFU_action" placeholder="Ex: Relancé Matrix par email, en attente réponse..."></textarea></div>
+    <div class="form-group"><label class="form-label">Contact relancé</label><input class="form-input" id="fFU_contact" placeholder="Ex: Matrix, Software Society, Maud MESNIL..."></div>
+    <div class="form-group"><label class="form-label">Prochaine relance prévue</label><input class="form-input" type="date" id="fFU_next" value="${nextWeek}"></div>
+    <div class="form-actions"><button class="form-cancel" onclick="closeModal()">Annuler</button><button class="form-submit" onclick="saveFollowup(${ticketId})">Enregistrer la relance</button></div>`);
+};
+window.saveFollowup=function(ticketId){
+  const action=document.getElementById("fFU_action").value;
+  const contact=document.getElementById("fFU_contact").value;
+  const nextRelance=document.getElementById("fFU_next").value;
+  if(!action){showToast("⚠ Décris l'action réalisée");return}
+  if(!DATA.followups)DATA.followups=[];
+  // Close previous active followup for this ticket
+  DATA.followups.filter(f=>f.ticketId===ticketId&&!f.done).forEach(f=>f.done=true);
+  DATA.followups.push({id:Date.now(),ticketId,action,contact,date:new Date().toISOString().split("T")[0],nextRelance,done:false});
+  logChange("Relance ticket "+DATA.tickets.find(t=>t.id===ticketId)?.number+" : "+action);
+  addNotification("🔄 Relance enregistrée",DATA.tickets.find(t=>t.id===ticketId)?.title,"info");
+  // Auto-create reminder if next date set
+  if(nextRelance){
+    addReminder("Relancer ticket "+DATA.tickets.find(t=>t.id===ticketId)?.number,nextRelance,"09:00","haute",DATA.tickets.find(t=>t.id===ticketId)?.club||"Tous");
+  }
+  saveData();closeModal();render();
+};
+window.markFollowupDone=function(id){
+  const f=(DATA.followups||[]).find(x=>x.id===id);
+  if(f){f.done=true;logChange("Relance clôturée : ticket "+DATA.tickets.find(t=>t.id===f.ticketId)?.number);saveData();render()}
+};
+
+// ══════════════════════════════════════════
+// CV MANAGEMENT - Recrutement
+// ══════════════════════════════════════════
+const DEFAULT_SKILLS=["Accueil clientèle","Vente / Objectifs","Ménage / Entretien","Ouverture / Fermeture","Encaissement","Gestion des plaintes","Sport / Fitness","Communication","Ponctualité","Travail en équipe","Autonomie","Polyvalence"];
+
+function matchCVScore(cvSkills,requiredSkills){
+  if(!requiredSkills||requiredSkills.length===0)return{score:0,matched:[],missing:[],extra:[]};
+  const matched=cvSkills.filter(s=>requiredSkills.includes(s));
+  const missing=requiredSkills.filter(s=>!cvSkills.includes(s));
+  const extra=cvSkills.filter(s=>!requiredSkills.includes(s));
+  const score=Math.round(matched.length/requiredSkills.length*100);
+  return{score,matched,missing,extra};
+}
+
+window.addCVForm=function(){
+  const skillChecks=DEFAULT_SKILLS.map(s=>`<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 0;cursor:pointer"><input type="checkbox" class="cv-skill-check" value="${s}"> ${s}</label>`).join("");
+  showModal(`<div class="form-title">📄 Nouveau CV / Candidature</div>
+    <div class="form-group"><label class="form-label">Nom du candidat *</label><input class="form-input" id="fCV_name" placeholder="Prénom NOM"></div>
+    <div style="display:flex;gap:10px"><div class="form-group" style="flex:1"><label class="form-label">Téléphone</label><input class="form-input" id="fCV_phone" placeholder="06 xx xx xx xx"></div><div class="form-group" style="flex:1"><label class="form-label">Email</label><input class="form-input" id="fCV_email" placeholder="email@example.com"></div></div>
+    <div class="form-group"><label class="form-label">Club souhaité</label><select class="form-select" id="fCV_club"><option value="Tous">Tous les clubs</option>${clubOpts()}</select></div>
+    <div class="form-group"><label class="form-label">Type de contrat</label><select class="form-select" id="fCV_contrat"><option>Temps plein 35h</option><option>Temps partiel 20h</option><option>Temps partiel 12,5h</option><option>Alternance</option><option>Stage</option></select></div>
+    <div class="form-group"><label class="form-label">Disponibilité</label><input class="form-input" id="fCV_dispo" placeholder="Ex: Immédiate, Septembre 2026..."></div>
+    <div class="form-group"><label class="form-label">Compétences du candidat</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;max-height:200px;overflow-y:auto;padding:8px;background:#F9FAFB;border-radius:8px;border:1px solid #E5E7EB">${skillChecks}</div>
+    <div style="margin-top:6px"><input class="form-input" id="fCV_extraSkill" placeholder="Autre compétence..." style="display:inline;width:70%"> <button class="btn-secondary" onclick="addExtraCVSkill()" style="font-size:11px">+ Ajouter</button></div></div>
+    <div class="form-group"><label class="form-label">Note / Impression</label><textarea class="form-textarea" id="fCV_note" placeholder="Première impression, source du CV, commentaires..."></textarea></div>
+    <div class="form-actions"><button class="form-cancel" onclick="closeModal()">Annuler</button><button class="form-submit" onclick="saveCV()">Enregistrer le CV</button></div>`);
+};
+window.addExtraCVSkill=function(){
+  const input=document.getElementById("fCV_extraSkill");
+  const val=input.value.trim();
+  if(!val)return;
+  const container=document.querySelector(".cv-skill-check")?.closest("div");
+  if(container){
+    const label=document.createElement("label");
+    label.style.cssText="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 0;cursor:pointer";
+    label.innerHTML=`<input type="checkbox" class="cv-skill-check" value="${val}" checked> ${val}`;
+    container.appendChild(label);
+  }
+  input.value="";
+};
+window.saveCV=function(){
+  const name=document.getElementById("fCV_name").value;
+  if(!name){showToast("⚠ Nom requis");return}
+  const skills=[...document.querySelectorAll(".cv-skill-check:checked")].map(c=>c.value);
+  if(!DATA.cvs)DATA.cvs=[];
+  DATA.cvs.push({
+    id:Date.now(),name,
+    phone:document.getElementById("fCV_phone").value,
+    email:document.getElementById("fCV_email").value,
+    club:document.getElementById("fCV_club").value,
+    contrat:document.getElementById("fCV_contrat").value,
+    dispo:document.getElementById("fCV_dispo").value,
+    skills,
+    note:document.getElementById("fCV_note").value,
+    status:"nouveau",
+    dateRecu:new Date().toISOString().split("T")[0],
+    rating:0
+  });
+  logChange("CV ajouté : "+name);
+  addNotification("📄 Nouveau CV",name+" — "+document.getElementById("fCV_club").value,"info");
+  saveData();closeModal();render();
+};
+window.updateCVStatus=function(id,status){
+  const cv=(DATA.cvs||[]).find(x=>x.id===id);
+  if(cv){cv.status=status;logChange("CV "+cv.name+" → "+status);saveData();render()}
+};
+window.deleteCV=function(id){if(confirm("Supprimer ce CV ?")){DATA.cvs=(DATA.cvs||[]).filter(x=>x.id!==id);saveData();render()}};
+window.rateCVStar=function(id,stars){
+  const cv=(DATA.cvs||[]).find(x=>x.id===id);
+  if(cv){cv.rating=stars;saveData();render()}
+};
+
+// ══════════════════════════════════════════
+// PHONE ALERTS (SMS / WhatsApp simulation)
+// ══════════════════════════════════════════
+window.saveAlertSettings=function(){
+  DATA.alertSettings={
+    phone:document.getElementById("as_phone").value,
+    smsEnabled:document.getElementById("as_sms").checked,
+    whatsappEnabled:document.getElementById("as_wa").checked,
+    emailAlerts:document.getElementById("as_email").checked
+  };
+  logChange("Paramètres alertes téléphone mis à jour");
+  saveData();
+  showToast("✓ Paramètres d'alerte sauvegardés");
+};
+window.testPhoneAlert=function(){
+  const phone=DATA.alertSettings?.phone;
+  if(!phone){showToast("⚠ Configure d'abord ton numéro");return}
+  const msg=encodeURIComponent("🚨 TEST ALERTE — Dashboard Cluster Manager Basic-Fit\nCeci est un test d'alerte. Si tu reçois ce message, les alertes fonctionnent !");
+  if(DATA.alertSettings?.whatsappEnabled){
+    window.open(`https://wa.me/${phone.replace(/[^0-9+]/g,'')}?text=${msg}`,"_blank");
+    showToast("✓ WhatsApp ouvert");
+  }else if(DATA.alertSettings?.smsEnabled){
+    window.open(`sms:${phone}?body=${decodeURIComponent(msg)}`,"_blank");
+    showToast("✓ SMS ouvert");
+  }else{
+    showToast("⚠ Active au moins un canal (SMS ou WhatsApp)");
+  }
+};
+window.sendUrgentAlert=function(title,body){
+  const phone=DATA.alertSettings?.phone;
+  if(!phone)return;
+  const msg=encodeURIComponent(`🚨 ALERTE URGENTE\n${title}\n${body}\n— Dashboard Cluster Manager`);
+  if(DATA.alertSettings?.whatsappEnabled){
+    window.open(`https://wa.me/${phone.replace(/[^0-9+]/g,'')}?text=${msg}`,"_blank");
+  }else if(DATA.alertSettings?.smsEnabled){
+    window.open(`sms:${phone}?body=${decodeURIComponent(msg)}`,"_blank");
+  }
+};
+
+// ══════════════════════════════════════════
+// EXPORT EXCEL - Tickets par club/date
+// ══════════════════════════════════════════
+function ticketAge(dateCreated){if(!dateCreated)return 0;return Math.ceil((new Date()-new Date(dateCreated))/(1000*60*60*24))}
+function ticketAgeClass(days){if(days>=60)return"critical";if(days>=30)return"warning";return"ok"}
+function ticketAgeLabel(days){if(days>=60)return"🔴 "+days+"j";if(days>=30)return"🟠 "+days+"j";return days+"j"}
+
+window.exportTicketsExcel=function(clubFilter){
+  const SL={ouvert:"Ouvert",encours:"En cours",planifie:"Planifié",termine:"Terminé",attente:"En attente"};
+  const tickets=clubFilter&&clubFilter!=="all"?DATA.tickets.filter(t=>t.club===clubFilter):DATA.tickets;
+  const sorted=[...tickets].sort((a,b)=>new Date(b.dateCreated)-new Date(a.dateCreated));
+  const clubName=clubFilter&&clubFilter!=="all"?clubFilter:"Tous_les_clubs";
+  const today=new Date().toISOString().split("T")[0];
+  let csv="\uFEFF";
+  csv+="N° Ticket;Référence;Club;Salle;Problème;Description;Intervenant;Priorité;Statut;Date Création;Ancienneté (jours);Relances\n";
+  sorted.forEach(t=>{
+    const age=ticketAge(t.dateCreated);const relances=(DATA.followups||[]).filter(f=>f.ticketId===t.id).length;
+    csv+=`"${t.number||''}";"${t.ref||''}";"${t.club}";"${t.salle||''}";"${(t.title||'').replace(/"/g,'""')}";"${(t.description||'').replace(/"/g,'""')}";"${t.intervenant||''}";"${t.priority}";"${SL[t.status]||t.status}";"${t.dateCreated}";${age};${relances}\n`;
+  });
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});const url=URL.createObjectURL(blob);const a=document.createElement("a");
+  a.href=url;a.download=`Tickets_${clubName.replace(/[^a-zA-ZÀ-ÿ0-9]/g,"_")}_${today}.csv`;a.click();URL.revokeObjectURL(url);
+  if(!DATA.ticketExports)DATA.ticketExports=[];
+  DATA.ticketExports.push({date:new Date().toISOString(),club:clubName,count:sorted.length});
+  logChange("Export Excel tickets : "+clubName+" ("+sorted.length+" tickets)");saveData();
+  showToast("✓ Excel exporté — "+sorted.length+" tickets");
+};
+window.exportAllClubsTickets=function(){DATA.clubs.forEach(c=>{const tk=DATA.tickets.filter(t=>t.club===c.name);if(tk.length>0)window.exportTicketsExcel(c.name)})};
+
+// ══════════════════════════════════════════
+// TICKET AGE ALERTS
+// ══════════════════════════════════════════
+function checkTicketAgeAlerts(){
+  DATA.tickets.filter(t=>t.status!=="termine").forEach(t=>{
+    const age=ticketAge(t.dateCreated);const level=Math.floor(age/30);
+    if(age>=30&&!t["_age_"+level]){
+      t["_age_"+level]=true;
+      const u=age>=90?"🔴 CRITIQUE":age>=60?"🟠 ATTENTION":"⚠ Rappel";
+      addNotification(u+" — Ticket "+age+"j",t.number+" "+t.title+" — "+t.club,age>=60?"urgent":"reminder");
+    }
+    if((t.priority==="urgente"||t.priority==="haute")&&age>=14&&!t["_safe_"+Math.floor(age/14)]){
+      t["_safe_"+Math.floor(age/14)]=true;
+      addNotification("🏋️ Sécurité salle",t.number+" "+t.title+" — "+t.club+" · "+t.salle+" ("+age+"j non résolu)","urgent");
+    }
+  });
+}
+
+// ══════════════════════════════════════════
+// AVIS GOOGLE
+// ══════════════════════════════════════════
+const AVIS_CATEGORIES=["Équipement","Propreté","Accueil","Ambiance","Vestiaires","Machines HS","Climatisation","Sécurité"];
+function analyzeAvisText(text){
+  const t=text.toLowerCase(),tags=[];
+  if(/machine|appareil|tapis|vélo|câble|poulie|équipement|poids/i.test(t))tags.push({label:"Équipement",type:"equip"});
+  if(/propre|sale|ménage|nettoy|poussière|odeur/i.test(t))tags.push({label:"Propreté",type:"proprete"});
+  if(/accueil|staff|personnel|agent|sympa|aimable|désagréable/i.test(t))tags.push({label:"Accueil",type:"accueil"});
+  if(/vestiaire|douche|casier|toilette/i.test(t))tags.push({label:"Vestiaires",type:"equip"});
+  if(/clim|chaud|froid|température|ventilation/i.test(t))tags.push({label:"Climatisation",type:"equip"});
+  if(/cassé|hs|panne|marche pas|hors service|défectueux/i.test(t))tags.push({label:"Machine HS",type:"negatif"});
+  if(/danger|sécurité|blessure|risque/i.test(t))tags.push({label:"Sécurité",type:"negatif"});
+  if(/excellent|super|top|génial|parfait|recommand/i.test(t))tags.push({label:"Positif",type:"positif"});
+  if(/nul|horrible|déçu|scandale|catastroph|fuir|pire/i.test(t))tags.push({label:"Négatif",type:"negatif"});
+  return tags;
+}
+window.addAvisForm=function(club){
+  showModal(`<div class="form-title">⭐ Ajouter un avis Google</div>
+    <div class="form-group"><label class="form-label">Club</label><select class="form-select" id="fAv_club">${clubOpts(club)}</select></div>
+    <div class="form-group"><label class="form-label">Note (étoiles)</label><select class="form-select" id="fAv_stars"><option value="5">⭐⭐⭐⭐⭐ (5)</option><option value="4">⭐⭐⭐⭐ (4)</option><option value="3" selected>⭐⭐⭐ (3)</option><option value="2">⭐⭐ (2)</option><option value="1">⭐ (1)</option></select></div>
+    <div class="form-group"><label class="form-label">Auteur</label><input class="form-input" id="fAv_author" placeholder="Nom Google"></div>
+    <div class="form-group"><label class="form-label">Texte de l'avis *</label><textarea class="form-textarea" id="fAv_text" rows="4" placeholder="Copie-colle l'avis ici..."></textarea></div>
+    <div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="fAv_date" value="${new Date().toISOString().split('T')[0]}"></div>
+    <div class="form-actions"><button class="form-cancel" onclick="closeModal()">Annuler</button><button class="form-submit" onclick="saveAvis()">Enregistrer</button></div>`);
+};
+window.saveAvis=function(){
+  const text=document.getElementById("fAv_text").value;
+  if(!text){showToast("⚠ Texte requis");return}
+  if(!DATA.avisGoogle)DATA.avisGoogle=[];
+  const avis={id:Date.now(),club:document.getElementById("fAv_club").value,stars:parseInt(document.getElementById("fAv_stars").value),
+    author:document.getElementById("fAv_author").value||"Anonyme",text,date:document.getElementById("fAv_date").value,
+    tags:analyzeAvisText(text),dateAdded:new Date().toISOString()};
+  DATA.avisGoogle.push(avis);
+  if(!DATA.avisLastFetch)DATA.avisLastFetch={};
+if(!DATA.importedFiles)DATA.importedFiles=[];
+if(!DATA.importHistory)DATA.importHistory=[];
+  DATA.avisLastFetch[avis.club]=new Date().toISOString();
+  logChange("Avis Google : "+avis.club+" — "+avis.stars+"★");
+  if(avis.stars<=2&&avis.tags.some(t=>t.type==="negatif"||t.type==="equip"))
+    addNotification("⭐ Avis négatif — "+avis.club,'"'+text.substring(0,80)+'..." — '+avis.stars+"★","urgent");
+  saveData();closeModal();render();
+};
+window.deleteAvis=function(id){DATA.avisGoogle=(DATA.avisGoogle||[]).filter(x=>x.id!==id);saveData();render()};
+function getClubAvisStats(clubName){
+  const avis=(DATA.avisGoogle||[]).filter(a=>a.club===clubName);
+  if(avis.length===0)return{count:0,avg:0,equipIssues:0,cleanIssues:0,recent:[]};
+  const avg=Math.round(avis.reduce((s,a)=>s+a.stars,0)/avis.length*10)/10;
+  return{count:avis.length,avg,equipIssues:avis.filter(a=>a.tags&&a.tags.some(t=>t.label==="Machine HS"||t.label==="Équipement")).length,
+    cleanIssues:avis.filter(a=>a.tags&&a.tags.some(t=>t.type==="proprete")).length,
+    recent:avis.sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,5)};
+}
+function needsAvisRefresh(club){const last=DATA.avisLastFetch&&DATA.avisLastFetch[club];if(!last)return true;return(new Date()-new Date(last))>(7*24*60*60*1000)}
+
+// ══════════════════════════════════════════
+// ══════════════════════════════════════════
+// IMPORT EXCEL SYSTEM v2 — Salle par salle
+// ══════════════════════════════════════════
+let _importPreview=null;
+let _importSheetIdx=0;
+let _importSelectedClub="";
+let _ticketSortMode="date";
+let _importViewClub="all"; // for ticket module view
+
+// ═══ HEURES DE TRAVAIL — FONCTIONS ═══
+let _heuresWeekOffset=0;
+
+window.editContratHeures=function(){
+  const cur=DATA.heuresContrat||35;
+  showModal(`<div class="form-title">Heures contractuelles / semaine</div>
+    <div class="form-group"><label class="form-label">Heures hebdomadaires</label><input class="form-input" type="number" id="fContratH" value="${cur}" step="0.5" min="0" max="60"></div>
+    <div style="font-size:11px;color:#6B7280;margin-bottom:12px">Ex: 12,5h = temps partiel · 20h · 27,5h · 35h = temps plein</div>
+    <div class="form-actions"><button class="form-cancel" onclick="closeModal()">Annuler</button>
+    <button class="form-submit" onclick="DATA.heuresContrat=parseFloat(document.getElementById('fContratH').value)||12.5;saveData();closeModal();render()">Enregistrer</button></div>`);
+};
+
+window.editDayHeures=function(dateStr,dayIdx){
+  if(!DATA.heures)DATA.heures=[];
+  var entry=DATA.heures.find(function(h){return h.date===dateStr});
+  if(!entry){entry={date:dateStr,slots:[{debut:"",fin:"",club:""}],pause:0,note:""};DATA.heures.push(entry)}
+  if(!entry.slots||entry.slots.length===0)entry.slots=[{debut:"",fin:"",club:""}];
+
+  var JOURS=["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi","Dimanche"];
+  var jourName=JOURS[dayIdx]||"";
+
+  var slotsHtml="";
+  entry.slots.forEach(function(s,i){
+    slotsHtml+='<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px" id="slot_row_'+i+'">';
+    slotsHtml+='<input class="form-input" type="time" id="fHD_'+i+'" value="'+(s.debut||"")+'" style="width:110px">';
+    slotsHtml+='<span style="color:#9CA3AF">→</span>';
+    slotsHtml+='<input class="form-input" type="time" id="fHF_'+i+'" value="'+(s.fin||"")+'" style="width:110px">';
+    slotsHtml+='<select class="form-select" id="fHC_'+i+'" style="flex:1;font-size:12px">';
+    slotsHtml+='<option value="">(club)</option>';
+    DATA.clubs.forEach(function(c){slotsHtml+='<option value="'+c.name+'"'+(s.club===c.name?' selected':'')+'>'+c.name+'</option>'});
+    slotsHtml+='</select>';
+    if(i>0)slotsHtml+='<button class="btn-danger" style="padding:4px 8px;font-size:11px" onclick="document.getElementById(\'slot_row_'+i+'\').remove()">✕</button>';
+    slotsHtml+='</div>';
+  });
+
+  showModal('<div class="form-title">'+jourName+' '+fmtDateShort(dateStr)+'</div>'+
+    '<div class="form-group"><label class="form-label">Créneaux horaires</label>'+
+    '<div id="heuresSlotsContainer">'+slotsHtml+'</div>'+
+    '<button class="btn-secondary" style="font-size:11px;margin-top:4px" onclick="addHeureSlot()">+ Ajouter un créneau</button></div>'+
+    '<div style="display:flex;gap:12px"><div class="form-group" style="flex:1"><label class="form-label">Pause (minutes)</label><input class="form-input" type="number" id="fHP" value="'+(entry.pause||0)+'" min="0" step="5"></div></div>'+
+    '<div class="form-group"><label class="form-label">Note</label><input class="form-input" id="fHN" value="'+(entry.note||"").replace(/"/g,"&quot;")+'"></div>'+
+    '<div class="form-actions"><button class="form-cancel" onclick="closeModal()">Annuler</button>'+
+    '<button class="btn-danger" style="margin-right:auto" onclick="clearDayHeures(\''+dateStr+'\')">🗑 Vider</button>'+
+    '<button class="form-submit" onclick="saveDayHeures(\''+dateStr+'\')">Enregistrer</button></div>');
+};
+
+window.addHeureSlot=function(){
+  var container=document.getElementById("heuresSlotsContainer");
+  if(!container)return;
+  var count=container.children.length;
+  var div=document.createElement("div");
+  div.style.cssText="display:flex;gap:8px;align-items:center;margin-bottom:8px";
+  div.id="slot_row_"+count;
+  var clubOpts='<option value="">(club)</option>';
+  DATA.clubs.forEach(function(c){clubOpts+='<option value="'+c.name+'">'+c.name+'</option>'});
+  div.innerHTML='<input class="form-input" type="time" id="fHD_'+count+'" style="width:110px">'+
+    '<span style="color:#9CA3AF">→</span>'+
+    '<input class="form-input" type="time" id="fHF_'+count+'" style="width:110px">'+
+    '<select class="form-select" id="fHC_'+count+'" style="flex:1;font-size:12px">'+clubOpts+'</select>'+
+    '<button class="btn-danger" style="padding:4px 8px;font-size:11px" onclick="this.parentElement.remove()">✕</button>';
+  container.appendChild(div);
+};
+
+window.saveDayHeures=function(dateStr){
+  if(!DATA.heures)DATA.heures=[];
+  var entry=DATA.heures.find(function(h){return h.date===dateStr});
+  if(!entry){entry={date:dateStr,slots:[],pause:0,note:""};DATA.heures.push(entry)}
+  var slots=[];
+  var container=document.getElementById("heuresSlotsContainer");
+  if(container){
+    for(var i=0;i<container.children.length;i++){
+      var dEl=document.getElementById("fHD_"+i);
+      var fEl=document.getElementById("fHF_"+i);
+      var cEl=document.getElementById("fHC_"+i);
+      if(dEl&&fEl){
+        var debut=dEl.value;var fin=fEl.value;var club=cEl?cEl.value:"";
+        if(debut||fin)slots.push({debut:debut,fin:fin,club:club});
+      }
+    }
+  }
+  entry.slots=slots;
+  entry.pause=parseInt(document.getElementById("fHP").value)||0;
+  entry.note=document.getElementById("fHN").value||"";
+  logChange("Heures saisies : "+dateStr);
+  saveData();closeModal();render();
+};
+
+window.clearDayHeures=function(dateStr){
+  DATA.heures=DATA.heures.filter(function(h){return h.date!==dateStr});
+  logChange("Heures supprimées : "+dateStr);
+  saveData();closeModal();render();
+};
+
+window.exportHeuresWeek=function(){
+  var today=new Date();
+  var offset=_heuresWeekOffset||0;
+  var monday=new Date(today);monday.setDate(today.getDate()-((today.getDay()+6)%7)+offset*7);
+  var JOURS=["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi","Dimanche"];
+  var lines=["RÉCAP HEURES — Semaine du "+fmtDateShort(monday.toISOString()),""];
+  var totalMin=0;
+  for(var d=0;d<7;d++){
+    var dt=new Date(monday);dt.setDate(monday.getDate()+d);
+    var dateStr=dt.toISOString().split("T")[0];
+    var entry=(DATA.heures||[]).find(function(h){return h.date===dateStr});
+    var mins=0;
+    if(entry&&entry.slots){
+      entry.slots.forEach(function(s){
+        if(s.debut&&s.fin){
+          var p1=s.debut.split(":").map(Number);var p2=s.fin.split(":").map(Number);
+          mins+=(p2[0]*60+p2[1])-(p1[0]*60+p1[1]);
+        }
+      });
+      mins-=(entry.pause||0);
+      mins=Math.max(0,mins);
+    }
+    totalMin+=mins;
+    var detail="";
+    if(entry&&entry.slots&&entry.slots.length>0){
+      detail=entry.slots.map(function(s){return (s.debut||"?")+"-"+(s.fin||"?")+(s.club?" ("+s.club+")":"")}).join(" + ");
+      if(entry.pause>0)detail+=" (pause "+entry.pause+"min)";
+    }
+    var h=Math.floor(mins/60);var mm=mins%60;
+    lines.push(JOURS[d]+" "+fmtDateShort(dateStr)+": "+(mins>0?h+"h"+String(mm).padStart(2,"0"):"—")+(detail?" — "+detail:""));
+  }
+  var th=Math.floor(totalMin/60);var tm=totalMin%60;
+  lines.push("");lines.push("TOTAL: "+th+"h"+String(tm).padStart(2,"0")+" / "+(DATA.heuresContrat||35)+"h contrat");
+  navigator.clipboard.writeText(lines.join("\n")).then(function(){showToast("✓ Récap copié !")});
+};
+
+function buildHeuresHistory(){
+  if(!DATA.heures||DATA.heures.length===0)return '<div class="empty-state" style="padding:20px">Aucune heure saisie</div>';
+  // Group by week
+  var weeks={};
+  DATA.heures.forEach(function(h){
+    var dt=new Date(h.date);
+    var mon=new Date(dt);mon.setDate(dt.getDate()-((dt.getDay()+6)%7));
+    var key=mon.toISOString().split("T")[0];
+    if(!weeks[key])weeks[key]={start:key,totalMin:0,days:0};
+    var mins=0;
+    (h.slots||[]).forEach(function(s){
+      if(s.debut&&s.fin){var p1=s.debut.split(":").map(Number);var p2=s.fin.split(":").map(Number);mins+=(p2[0]*60+p2[1])-(p1[0]*60+p1[1])}
+    });
+    mins-=(h.pause||0);mins=Math.max(0,mins);
+    weeks[key].totalMin+=mins;
+    if(mins>0)weeks[key].days++;
+  });
+  var sorted=Object.values(weeks).sort(function(a,b){return b.start.localeCompare(a.start)});
+  if(sorted.length===0)return '<div class="empty-state" style="padding:20px">Aucune donnée</div>';
+  var contrat=(DATA.heuresContrat||35)*60;
+  var html='<div style="overflow-x:auto"><table class="data-table"><thead><tr><th>Semaine du</th><th>Total</th><th>Contrat</th><th>Différence</th><th>Jours</th></tr></thead><tbody>';
+  sorted.slice(0,12).forEach(function(w){
+    var h=Math.floor(w.totalMin/60);var mm=w.totalMin%60;
+    var diff=w.totalMin-contrat;
+    var diffH=Math.floor(Math.abs(diff)/60);var diffM=Math.abs(diff)%60;
+    var diffStr=(diff>=0?"+":"-")+diffH+"h"+String(diffM).padStart(2,"0");
+    var diffCol=diff>=0?"#16A34A":"#DC2626";
+    html+='<tr><td>'+fmtDateShort(w.start)+'</td><td style="font-weight:700;color:#FE7F00">'+h+'h'+String(mm).padStart(2,"0")+'</td><td>'+(DATA.heuresContrat||35)+'h</td><td style="font-weight:600;color:'+diffCol+'">'+diffStr+'</td><td>'+w.days+'j</td></tr>';
+  });
+  html+='</tbody></table></div>';
+  return html;
+}
+
+// ═══ CALENDRIER — FONCTIONS ═══
+var _calMonth=undefined;
+var _calYear=undefined;
+
+window.calNav=function(dir){
+  var today=new Date();
+  if(_calMonth===undefined)_calMonth=today.getMonth();
+  if(_calYear===undefined)_calYear=today.getFullYear();
+  _calMonth+=dir;
+  if(_calMonth>11){_calMonth=0;_calYear++}
+  if(_calMonth<0){_calMonth=11;_calYear--}
+  render();
+};
+window.calNavToday=function(){_calMonth=undefined;_calYear=undefined;render()};
+
+// ═══ IMPORT AGENDA OUTLOOK (.ics) ═══
+// ═══ IMPORT AGENTS WORKDAY (coller le tableau "Membres" d'un export PDF/Workday) ═══
+window.importWorkdayAgentsModal=function(){
+  const clubOptions=DATA.clubs.map(c=>`<option value="${c.name}">${c.name}</option>`).join("");
+  showModal(`<div class="form-title">📋 Import agents depuis Workday</div>
+    <div style="font-size:12px;color:#6B7280;background:#F0FDFA;border:1px solid #99F6E4;border-radius:8px;padding:10px 14px;margin-bottom:14px">
+      Ouvre ton export PDF Workday, sélectionne et copie le tableau "Membres" (les lignes Employé / Matricule / Emploi / Site), puis colle-le ci-dessous. Les postes marqués "libéré" seront ignorés automatiquement.
+    </div>
+    <div class="form-group"><label class="form-label">Club concerné</label><select class="form-select" id="fWDClub">${clubOptions}</select></div>
+    <div class="form-group"><label class="form-label">Texte collé depuis le PDF</label><textarea class="form-input" id="fWDText" rows="10" style="font-family:monospace;font-size:11px;white-space:pre" placeholder="Alya Kachour	516413	Hôte / Hôtesse	...	Lagny-Sur-Marne Rue Jacquard 24/7"></textarea></div>
+    <div class="form-actions"><button class="form-cancel" onclick="closeModal()">Annuler</button><button class="form-submit" onclick="parseWorkdayImport()">Analyser & importer</button></div>`);
+};
+
+window.parseWorkdayImport=function(){
+  const club=document.getElementById("fWDClub").value;
+  const raw=document.getElementById("fWDText").value;
+  if(!raw||!raw.trim()){showToast("⚠ Colle d'abord le texte du tableau");return}
+  const lines=raw.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  let added=0,updated=0,skipped=0,liberes=0;
+  lines.forEach(function(line){
+    // Ignore header line
+    if(/^Employ[ée]\s/i.test(line)||/^Membres$/i.test(line))return;
+    // Matricule = premier nombre de 4 à 7 chiffres trouvé sur la ligne
+    const matMatch=line.match(/\b(\d{4,7})\b/);
+    if(!matMatch)return;
+    const matricule=matMatch[1];
+    const isLibere=/lib[ée]r[ée]/i.test(line);
+    // Nom = tout ce qui précède le matricule
+    let name=line.substring(0,matMatch.index).trim();
+    name=name.replace(/\s{2,}/g," ").replace(/\t/g," ").trim();
+    if(!name){skipped++;return}
+    // Normalise "Nom PRENOM" en Prénom Nom si tout en majuscules détecté ; sinon garde tel quel
+    if(isLibere){liberes++;return} // poste libéré = agent parti, on ne l'ajoute pas
+    const existing=DATA.team.find(t=>t.matricule===matricule);
+    if(existing){
+      existing.name=name;existing.club=club;
+      updated++;
+    }else{
+      DATA.team.push({id:nextId(DATA.team),name:name,matricule:matricule,tel:"",club:club,salle:"Non affecté",role:"Hôte / Hôtesse",status:"présent",rank:99,color:["blue","teal","purple","orange","pink"][DATA.team.length%5],note:""});
+      added++;
+    }
+  });
+  saveData();closeModal();render();
+  showToast(`✓ ${added} ajouté(s), ${updated} mis à jour${liberes>0?`, ${liberes} poste(s) libéré(s) ignoré(s)`:''}`);
+  if(added===0&&updated===0)showToast("⚠ Aucun agent détecté — vérifie le format collé");
+};
+
+window.importIcsFile=function(){
+  var inp=document.createElement("input");
+  inp.type="file";inp.accept=".ics";inp.style.display="none";
+  inp.onchange=function(e){if(e.target.files[0])processIcsImport(e.target.files[0])};
+  document.body.appendChild(inp);inp.click();
+};
+
+function parseIcsDate(raw){
+  // formats possibles: 20260315T090000Z ou 20260315T090000 ou 20260315
+  if(!raw)return null;
+  raw=raw.trim();
+  var isUTC=raw.endsWith("Z");
+  var clean=raw.replace("Z","");
+  var y=clean.substring(0,4),mo=clean.substring(4,6),d=clean.substring(6,8);
+  var h="00",mi="00";
+  if(clean.length>8&&clean[8]==="T"){h=clean.substring(9,11);mi=clean.substring(11,13)}
+  var iso=y+"-"+mo+"-"+d+"T"+h+":"+mi+":00"+(isUTC?"Z":"");
+  var dt=new Date(iso);
+  return isNaN(dt.getTime())?null:dt;
+}
+
+window.processIcsImport=function(file){
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var text=e.target.result;
+      // Déplie les lignes repliées (RFC5545: une ligne qui commence par un espace continue la précédente)
+      var unfolded=text.replace(/\r\n[ \t]/g,"").replace(/\n[ \t]/g,"");
+      var lines=unfolded.split(/\r\n|\n/);
+      var events=[];
+      var cur=null;
+      lines.forEach(function(line){
+        if(line.startsWith("BEGIN:VEVENT")){cur={}}
+        else if(line.startsWith("END:VEVENT")){if(cur)events.push(cur);cur=null}
+        else if(cur){
+          var idx=line.indexOf(":");
+          if(idx<0)return;
+          var key=line.substring(0,idx).split(";")[0];
+          var val=line.substring(idx+1);
+          if(key==="SUMMARY")cur.title=val.replace(/\\,/g,",").replace(/\\n/g," ");
+          else if(key==="DTSTART")cur.dtstart=val;
+          else if(key==="LOCATION")cur.location=val;
+          else if(key==="DESCRIPTION")cur.description=val.replace(/\\,/g,",").replace(/\\n/g," ").substring(0,200);
+        }
+      });
+      if(events.length===0){showToast("⚠ Aucun événement trouvé dans ce fichier");return}
+      if(!DATA.calEvents)DATA.calEvents=[];
+      var added=0,skipped=0;
+      events.forEach(function(ev){
+        var dt=parseIcsDate(ev.dtstart);
+        if(!dt||!ev.title)return;
+        var dateStr=dt.toISOString().split("T")[0];
+        var timeStr=dt.toISOString().substring(11,16);
+        // Évite les doublons (même titre + même date déjà importés)
+        var exists=DATA.calEvents.some(function(x){return x.title===ev.title&&x.date===dateStr&&x.source==="outlook"});
+        if(exists){skipped++;return}
+        DATA.calEvents.push({id:nextId(DATA.calEvents),title:ev.title,date:dateStr,time:timeStr,type:"rdv",club:ev.location||"",description:ev.description||"",alert:false,source:"outlook"});
+        added++;
+      });
+      logChange("Import agenda Outlook : "+added+" événement(s) ajouté(s)"+(skipped>0?", "+skipped+" déjà présents":""));
+      saveData();render();
+      showToast("✓ "+added+" événement(s) importé(s) depuis Outlook"+(skipped>0?" ("+skipped+" déjà présents ignorés)":""));
+    }catch(err){
+      console.log("Erreur import ICS:",err);
+      showToast("⚠ Fichier .ics illisible — vérifie le format exporté depuis Outlook");
+    }
+  };
+  reader.readAsText(file);
+};
+
+window.addCalEventForm=function(presetDate){
+  var today=presetDate||new Date().toISOString().split("T")[0];
+  var clubSel='<option value="">(aucun)</option>';
+  DATA.clubs.forEach(function(c){clubSel+='<option value="'+c.name+'">'+c.name+'</option>'});
+  showModal('<div class="form-title">📆 Nouvel événement</div>'+
+    '<div style="display:flex;gap:10px"><div class="form-group" style="flex:1"><label class="form-label">Date *</label><input class="form-input" type="date" id="fEvDate" value="'+today+'"></div>'+
+    '<div class="form-group" style="flex:1"><label class="form-label">Heure</label><input class="form-input" type="time" id="fEvTime"></div></div>'+
+    '<div class="form-group"><label class="form-label">Titre *</label><input class="form-input" id="fEvTitle" placeholder="Ex: Réunion cluster, Visite Meaux..."></div>'+
+    '<div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="fEvDesc" rows="2"></textarea></div>'+
+    '<div style="display:flex;gap:10px"><div class="form-group" style="flex:1"><label class="form-label">Type</label><select class="form-select" id="fEvType">'+
+      '<option value="rdv">📅 RDV</option><option value="visite">🏢 Visite club</option><option value="deadline">⏰ Deadline</option><option value="reunion">👥 Réunion</option><option value="formation">📚 Formation</option><option value="autre">📌 Autre</option></select></div>'+
+    '<div class="form-group" style="flex:1"><label class="form-label">Club</label><select class="form-select" id="fEvClub">'+clubSel+'</select></div></div>'+
+    '<div style="background:#F0F7FF;border:1px solid #93C5FD;border-radius:8px;padding:12px;margin-bottom:12px">'+
+      '<label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;cursor:pointer;color:#1D4ED8"><input type="checkbox" id="fEvAlert"> 🔔 Activer une alerte / notification</label>'+
+      '<div id="alertOptions" style="margin-top:8px;display:none">'+
+        '<div style="display:flex;gap:10px;flex-wrap:wrap">'+
+          '<div class="form-group" style="flex:1;min-width:120px"><label class="form-label">Rappel avant</label><select class="form-select" id="fEvAlertBefore">'+
+            '<option value="0">Au moment</option><option value="5">5 min</option><option value="15" selected>15 min</option><option value="30">30 min</option><option value="60">1 heure</option><option value="1440">1 jour</option></select></div>'+
+          '<div class="form-group" style="flex:1;min-width:120px"><label class="form-label">Priorité alerte</label><select class="form-select" id="fEvAlertPrio">'+
+            '<option value="info">ℹ Info</option><option value="normale" selected>🔔 Normale</option><option value="haute">🔶 Haute</option><option value="urgente">🚨 Urgente</option></select></div>'+
+        '</div>'+
+        '<div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap">'+
+          '<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" id="fEvAlertPopup" checked> 🖥 Popup dashboard</label>'+
+          '<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" id="fEvAlertWA"> 💬 WhatsApp</label>'+
+          '<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" id="fEvAlertSMS"> 📱 SMS</label>'+
+        '</div>'+
+      '</div>'+
+    '</div>'+
+    '<div class="form-group"><label class="form-label">Récurrence</label><select class="form-select" id="fEvRecur">'+
+      '<option value="">Aucune</option><option value="daily">Tous les jours</option><option value="weekly">Toutes les semaines</option><option value="monthly">Tous les mois</option></select></div>'+
+    '<div class="form-actions"><button class="form-cancel" onclick="closeModal()">Annuler</button><button class="form-submit" onclick="saveCalEvent()">Créer</button></div>');
+  // Toggle alert options
+  setTimeout(function(){
+    var cb=document.getElementById("fEvAlert");
+    if(cb)cb.addEventListener("change",function(){document.getElementById("alertOptions").style.display=this.checked?"block":"none"});
+  },50);
+};
+
+window.addCalAlertForm=function(){
+  var today=new Date().toISOString().split("T")[0];
+  var clubSel='<option value="">(aucun)</option>';
+  DATA.clubs.forEach(function(c){clubSel+='<option value="'+c.name+'">'+c.name+'</option>'});
+  showModal('<div class="form-title" style="color:#DC2626">🚨 Créer une ALERTE</div>'+
+    '<div style="background:#FEF2F2;border:1px solid #FECACA;padding:10px 14px;border-radius:8px;font-size:12px;color:#991B1B;margin-bottom:14px">Cette alerte sera visible en pop-up sur le dashboard et pourra être envoyée par WhatsApp/SMS</div>'+
+    '<div style="display:flex;gap:10px"><div class="form-group" style="flex:1"><label class="form-label">Date *</label><input class="form-input" type="date" id="fEvDate" value="'+today+'"></div>'+
+    '<div class="form-group" style="flex:1"><label class="form-label">Heure</label><input class="form-input" type="time" id="fEvTime"></div></div>'+
+    '<div class="form-group"><label class="form-label">Titre de l\'alerte *</label><input class="form-input" id="fEvTitle" placeholder="Ex: Urgence machine HS Meaux Victoire, Audit demain..."></div>'+
+    '<div class="form-group"><label class="form-label">Détails</label><textarea class="form-textarea" id="fEvDesc" rows="2"></textarea></div>'+
+    '<div style="display:flex;gap:10px"><div class="form-group" style="flex:1"><label class="form-label">Club</label><select class="form-select" id="fEvClub">'+clubSel+'</select></div>'+
+    '<div class="form-group" style="flex:1"><label class="form-label">Priorité</label><select class="form-select" id="fEvAlertPrio">'+
+      '<option value="haute">🔶 Haute</option><option value="urgente" selected>🚨 Urgente</option></select></div></div>'+
+    '<div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">'+
+      '<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" id="fEvAlertPopup" checked> 🖥 Popup visible</label>'+
+      '<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" id="fEvAlertWA" checked> 💬 Envoyer WhatsApp</label>'+
+      '<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" id="fEvAlertSMS"> 📱 Envoyer SMS</label>'+
+    '</div>'+
+    '<div class="form-actions"><button class="form-cancel" onclick="closeModal()">Annuler</button><button class="form-submit" style="background:#DC2626" onclick="saveCalAlert()">🚨 Créer l\'alerte</button></div>');
+};
+
+window.saveCalEvent=function(){
+  var title=document.getElementById("fEvTitle").value.trim();
+  if(!title){showToast("Titre requis");return}
+  var date=document.getElementById("fEvDate").value;
+  if(!date){showToast("Date requise");return}
+  var ev={
+    id:Date.now(),
+    title:title,
+    date:date,
+    time:document.getElementById("fEvTime").value||"",
+    description:document.getElementById("fEvDesc").value||"",
+    type:document.getElementById("fEvType")?document.getElementById("fEvType").value:"autre",
+    club:document.getElementById("fEvClub").value||"",
+    alert:document.getElementById("fEvAlert")?document.getElementById("fEvAlert").checked:false,
+    alertBefore:parseInt(document.getElementById("fEvAlertBefore")?document.getElementById("fEvAlertBefore").value:15)||0,
+    alertPrio:document.getElementById("fEvAlertPrio")?document.getElementById("fEvAlertPrio").value:"normale",
+    alertPopup:document.getElementById("fEvAlertPopup")?document.getElementById("fEvAlertPopup").checked:false,
+    alertWA:document.getElementById("fEvAlertWA")?document.getElementById("fEvAlertWA").checked:false,
+    alertSMS:document.getElementById("fEvAlertSMS")?document.getElementById("fEvAlertSMS").checked:false,
+    notified:false
+  };
+  // Handle recurrence
+  var recur=document.getElementById("fEvRecur")?document.getElementById("fEvRecur").value:"";
+  if(recur){
+    var baseDate=new Date(date);
+    for(var i=1;i<=12;i++){
+      var nd=new Date(baseDate);
+      if(recur==="daily")nd.setDate(nd.getDate()+i);
+      else if(recur==="weekly")nd.setDate(nd.getDate()+i*7);
+      else if(recur==="monthly")nd.setMonth(nd.getMonth()+i);
+      var clone=JSON.parse(JSON.stringify(ev));
+      clone.id=Date.now()+i;
+      clone.date=nd.toISOString().split("T")[0];
+      clone.notified=false;
+      DATA.calEvents.push(clone);
+    }
+  }
+  DATA.calEvents.push(ev);
+  logChange("Calendrier: +"+title+" le "+date);
+  addNotification("📆 Événement ajouté",title+" le "+fmtDateShort(date),"info");
+  saveData();closeModal();render();
+};
+
+window.saveCalAlert=function(){
+  var title=document.getElementById("fEvTitle").value.trim();
+  if(!title){showToast("Titre requis");return}
+  var date=document.getElementById("fEvDate").value;
+  if(!date){showToast("Date requise");return}
+  var ev={
+    id:Date.now(),title:title,date:date,
+    time:document.getElementById("fEvTime").value||"",
+    description:document.getElementById("fEvDesc").value||"",
+    type:"alert",
+    club:document.getElementById("fEvClub").value||"",
+    alert:true,alertBefore:0,
+    alertPrio:document.getElementById("fEvAlertPrio").value||"urgente",
+    alertPopup:document.getElementById("fEvAlertPopup").checked,
+    alertWA:document.getElementById("fEvAlertWA").checked,
+    alertSMS:document.getElementById("fEvAlertSMS")?document.getElementById("fEvAlertSMS").checked:false,
+    notified:false
+  };
+  DATA.calEvents.push(ev);
+  logChange("🚨 ALERTE: "+title+" le "+date);
+  addNotification("🚨 ALERTE CRÉÉE",title+" le "+fmtDateShort(date)+(ev.club?" ("+ev.club+")":""),"urgent");
+  // Immediately show popup if enabled
+  if(ev.alertPopup)setTimeout(function(){showPopupAlert(ev.id)},300);
+  // Send WhatsApp if enabled
+  if(ev.alertWA)setTimeout(function(){sendCalAlertWhatsApp(ev.id)},500);
+  // Send SMS if enabled
+  if(ev.alertSMS)setTimeout(function(){sendCalAlertSMS(ev.id)},600);
+  saveData();closeModal();render();
+};
+
+window.editCalEvent=function(id){
+  var ev=DATA.calEvents.find(function(e){return e.id===id});
+  if(!ev)return;
+  var clubSel='<option value="">(aucun)</option>';
+  DATA.clubs.forEach(function(c){clubSel+='<option value="'+c.name+'"'+(c.name===ev.club?' selected':'')+'>'+c.name+'</option>'});
+  showModal('<div class="form-title">✏ Modifier événement</div>'+
+    '<div style="display:flex;gap:10px"><div class="form-group" style="flex:1"><label class="form-label">Date</label><input class="form-input" type="date" id="fEvDate" value="'+ev.date+'"></div>'+
+    '<div class="form-group" style="flex:1"><label class="form-label">Heure</label><input class="form-input" type="time" id="fEvTime" value="'+(ev.time||'')+'"></div></div>'+
+    '<div class="form-group"><label class="form-label">Titre</label><input class="form-input" id="fEvTitle" value="'+ev.title.replace(/"/g,"&quot;")+'"></div>'+
+    '<div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="fEvDesc" rows="2">'+(ev.description||'')+'</textarea></div>'+
+    '<div style="display:flex;gap:10px"><div class="form-group" style="flex:1"><label class="form-label">Type</label><select class="form-select" id="fEvType">'+
+      ['rdv','visite','deadline','reunion','formation','alert','autre'].map(function(t){return '<option value="'+t+'"'+(t===ev.type?' selected':'')+'>'+(t==='alert'?'🚨 ALERTE':t)+'</option>'}).join('')+'</select></div>'+
+    '<div class="form-group" style="flex:1"><label class="form-label">Club</label><select class="form-select" id="fEvClub">'+clubSel+'</select></div></div>'+
+    '<div class="form-actions"><button class="form-cancel" onclick="closeModal()">Annuler</button><button class="form-submit" onclick="updateCalEvent('+id+')">Enregistrer</button></div>');
+};
+
+window.updateCalEvent=function(id){
+  var ev=DATA.calEvents.find(function(e){return e.id===id});
+  if(!ev)return;
+  ev.date=document.getElementById("fEvDate").value;
+  ev.time=document.getElementById("fEvTime").value||"";
+  ev.title=document.getElementById("fEvTitle").value;
+  ev.description=document.getElementById("fEvDesc").value||"";
+  ev.type=document.getElementById("fEvType").value;
+  ev.club=document.getElementById("fEvClub").value||"";
+  logChange("Calendrier modifié: "+ev.title);
+  saveData();closeModal();render();
+};
+
+window.deleteCalEvent=function(id){
+  if(!confirm("Supprimer cet événement ?"))return;
+  DATA.calEvents=DATA.calEvents.filter(function(e){return e.id!==id});
+  saveData();render();showToast("Événement supprimé");
+};
+
+window.showDayDetail=function(dateStr){
+  var evts=DATA.calEvents.filter(function(e){return e.date===dateStr}).sort(function(a,b){return(a.time||"").localeCompare(b.time||"")});
+  var typeLbl={rdv:"📅 RDV",visite:"🏢 Visite",deadline:"⏰ Deadline",reunion:"👥 Réunion",formation:"📚 Formation",alert:"🚨 ALERTE",autre:"📌 Autre"};
+  var html='<div class="form-title">📆 '+fmtDate(dateStr)+'</div>';
+  if(evts.length===0)html+='<div style="text-align:center;color:#9CA3AF;padding:20px">Aucun événement ce jour</div>';
+  else{
+    evts.forEach(function(e){
+      html+='<div style="padding:10px;border:1px solid #E5E7EB;border-radius:8px;margin-bottom:8px'+(e.type==="alert"?";background:#FEF2F2;border-color:#FECACA":"")+'">'+
+        '<div style="display:flex;justify-content:space-between;align-items:start"><div><strong>'+(e.time?e.time+" — ":"")+e.title+'</strong>'+
+        '<div style="font-size:12px;color:#6B7280;margin-top:2px">'+(typeLbl[e.type]||e.type)+(e.club?" · "+e.club:"")+'</div>'+
+        (e.description?'<div style="font-size:12px;color:#6B7280;margin-top:4px">'+e.description+'</div>':'')+'</div>'+
+        '<div style="display:flex;gap:4px">'+
+          '<button class="btn-secondary" style="font-size:10px;padding:3px 6px" onclick="closeModal();editCalEvent('+e.id+')">✏</button>'+
+          (e.alert?'<button class="btn-secondary" style="font-size:10px;padding:3px 6px" onclick="closeModal();showPopupAlert('+e.id+')">🔔</button>':'')+
+          (e.alert?'<button class="btn-secondary" style="font-size:10px;padding:3px 6px" onclick="sendCalAlertWhatsApp('+e.id+')">💬</button>':'')+
+        '</div></div></div>';
+    });
+  }
+  html+='<div class="form-actions"><button class="btn-add" onclick="closeModal();addCalEventForm(\''+dateStr+'\')">+ Événement</button><button class="form-cancel" onclick="closeModal()">Fermer</button></div>';
+  showModal(html);
+};
+
+// ═══ POPUP ALERT SYSTEM ═══
+window.showPopupAlert=function(eventId){
+  var ev=DATA.calEvents.find(function(e){return e.id===eventId});
+  if(!ev)return;
+  var prio=ev.alertPrio||"normale";
+  var icons={urgente:"🚨",haute:"⚠️",normale:"🔔",info:"ℹ️"};
+  var overlay=document.createElement("div");
+  overlay.className="popup-alert-overlay";
+  overlay.id="popupAlertOverlay";
+  overlay.innerHTML='<div class="popup-alert">'+
+    '<div class="popup-alert-header '+prio+'">'+
+      '<div class="popup-alert-icon">'+(icons[prio]||"🔔")+'</div>'+
+      '<div><div class="popup-alert-title">'+ev.title+'</div>'+
+        '<div style="font-size:13px;opacity:.9;margin-top:2px">'+fmtDate(ev.date)+(ev.time?' à '+ev.time:'')+(ev.club?' · '+ev.club:'')+'</div>'+
+      '</div>'+
+    '</div>'+
+    '<div class="popup-alert-body">'+
+      (ev.description?'<div style="font-size:14px;color:#374151;margin-bottom:12px">'+ev.description+'</div>':'')+
+      '<div style="font-size:12px;color:#6B7280">Priorité: <strong style="color:'+(prio==="urgente"?"#DC2626":prio==="haute"?"#EA580C":"#FE7F00")+'">'+prio.toUpperCase()+'</strong></div>'+
+    '</div>'+
+    '<div class="popup-alert-actions">'+
+      '<button class="btn-secondary" onclick="sendCalAlertWhatsApp('+ev.id+');dismissPopupAlert()">💬 WhatsApp</button>'+
+      '<button class="btn-secondary" onclick="sendCalAlertSMS('+ev.id+');dismissPopupAlert()">📱 SMS</button>'+
+      '<button class="btn-add" onclick="dismissPopupAlert()">✓ OK, compris</button>'+
+    '</div></div>';
+  overlay.addEventListener("click",function(e){if(e.target===overlay)dismissPopupAlert()});
+  document.body.appendChild(overlay);
+  // Play sound-like visual effect
+  if(prio==="urgente"){
+    overlay.querySelector(".popup-alert").style.animation="none";
+    setTimeout(function(){overlay.querySelector(".popup-alert").style.animation="shake .5s ease"},10);
+  }
+};
+
+window.dismissPopupAlert=function(){
+  var o=document.getElementById("popupAlertOverlay");
+  if(o)o.remove();
+};
+
+window.sendCalAlertWhatsApp=function(eventId){
+  var ev=DATA.calEvents.find(function(e){return e.id===eventId});
+  if(!ev)return;
+  var phone=(DATA.alertSettings&&DATA.alertSettings.phone)||"";
+  phone=phone.replace(/[^0-9+]/g,"");
+  var msg="🚨 ALERTE BASIC-FIT SEINE-ET-MARNE\n\n";
+  msg+="📌 "+ev.title+"\n";
+  msg+="📅 "+fmtDate(ev.date)+(ev.time?" à "+ev.time:"")+"\n";
+  if(ev.club)msg+="🏢 Club: "+ev.club+"\n";
+  if(ev.description)msg+="\n"+ev.description+"\n";
+  msg+="\n— Dashboard Basic-Fit Cluster";
+  var url="https://wa.me/"+(phone||"")+("?text="+encodeURIComponent(msg));
+  window.open(url,"_blank");
+  showToast("💬 WhatsApp ouvert");
+};
+
+window.sendCalAlertSMS=function(eventId){
+  var ev=DATA.calEvents.find(function(e){return e.id===eventId});
+  if(!ev)return;
+  var phone=(DATA.alertSettings&&DATA.alertSettings.phone)||"";
+  var msg="ALERTE BF: "+ev.title+" - "+fmtDateShort(ev.date)+(ev.time?" "+ev.time:"")+(ev.club?" ("+ev.club+")":"");
+  window.open("sms:"+phone+"?body="+encodeURIComponent(msg));
+  showToast("📱 SMS ouvert");
+};
+
+// Check calendar alerts periodically (called from checkReminders)
+function checkCalendarAlerts(){
+  var now=new Date();
+  var nowStr=now.toISOString().split("T")[0];
+  var nowTime=String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0");
+  (DATA.calEvents||[]).forEach(function(ev){
+    if(ev.notified||!ev.alert)return;
+    if(ev.date===nowStr){
+      var evMinutes=ev.time?parseInt(ev.time.split(":")[0])*60+parseInt(ev.time.split(":")[1]):0;
+      var nowMinutes=now.getHours()*60+now.getMinutes();
+      var diff=evMinutes-nowMinutes;
+      if(diff<=(ev.alertBefore||0)&&diff>-60){
+        ev.notified=true;
+        addNotification((ev.alertPrio==="urgente"?"🚨":"🔔")+" "+ev.title,fmtDate(ev.date)+(ev.time?" à "+ev.time:"")+(ev.club?" · "+ev.club:""),ev.alertPrio==="urgente"?"urgent":"reminder");
+        if(ev.alertPopup)showPopupAlert(ev.id);
+        if(ev.alertWA)sendCalAlertWhatsApp(ev.id);
+        if(ev.alertSMS)sendCalAlertSMS(ev.id);
+        saveData();
+      }
+    }
+  });
+}
+
+// ═══ GOOGLE REVIEWS AUTO-FETCH ═══
+window.saveGoogleApiKey=function(){
+  var key=document.getElementById("cfg_gapi").value.trim();
+  DATA.googleApiKey=key;
+  saveData();
+  if(key){
+    showToast("✓ Clé API sauvegardée — rafraîchissement auto activé");
+    fetchAllGoogleReviews();
+  } else {
+    showToast("Clé API supprimée");
+  }
+  render();
+};
+
+window.testGoogleApi=function(){
+  if(!DATA.googleApiKey){showToast("⚠ Configure d'abord ta clé API dans la Configuration");return}
+  fetchAllGoogleReviews();
+};
+
+var _googleApiLoaded=false;
+function loadGoogleMapsApi(callback){
+  if(_googleApiLoaded&&window.google&&window.google.maps){callback();return}
+  if(!DATA.googleApiKey)return;
+  // Check if already loading
+  if(document.getElementById("gmapsScript")){
+    var check=setInterval(function(){
+      if(window.google&&window.google.maps&&window.google.maps.places){clearInterval(check);_googleApiLoaded=true;callback()}
+    },200);
+    return;
+  }
+  window._gmapsCallback=function(){_googleApiLoaded=true;callback()};
+  var s=document.createElement("script");
+  s.id="gmapsScript";
+  s.src="https://maps.googleapis.com/maps/api/js?key="+DATA.googleApiKey+"&libraries=places&callback=_gmapsCallback";
+  s.async=true;s.defer=true;
+  s.onerror=function(){showToast("❌ Erreur chargement API Google — vérifie ta clé");};
+  document.head.appendChild(s);
+}
+
+function fetchAllGoogleReviews(){
+  if(!DATA.googleApiKey){return}
+  loadGoogleMapsApi(function(){
+    // Create hidden map element for PlacesService
+    var hiddenDiv=document.getElementById("gmapsHidden");
+    if(!hiddenDiv){hiddenDiv=document.createElement("div");hiddenDiv.id="gmapsHidden";hiddenDiv.style.display="none";document.body.appendChild(hiddenDiv)}
+    var service=new google.maps.places.PlacesService(hiddenDiv);
+    var updated=0;
+    var total=DATA.clubs.length;
+
+    DATA.clubs.forEach(function(club,idx){
+      if(!club.placeId)return;
+      setTimeout(function(){
+        service.getDetails({
+          placeId:club.placeId,
+          fields:["rating","user_ratings_total","reviews","name"]
+        },function(place,status){
+          if(status===google.maps.places.PlacesServiceStatus.OK&&place){
+            // Update club data
+            club.googleRating=place.rating||club.googleRating;
+            club.googleCount=place.user_ratings_total||club.googleCount;
+            DATA.avisLastFetch[club.name]=new Date().toISOString().split("T")[0];
+
+            // Import fresh reviews (up to 5 most relevant from Google)
+            if(place.reviews&&place.reviews.length>0){
+              // Remove old auto-imported reviews for this club
+              DATA.avisGoogle=DATA.avisGoogle.filter(function(a){return !(a.club===club.name&&a.source==="Google-Auto")});
+              place.reviews.forEach(function(r,ri){
+                DATA.avisGoogle.push({
+                  id:Date.now()+idx*100+ri,
+                  club:club.name,
+                  note:r.rating||5,
+                  stars:r.rating||5,
+                  auteur:r.author_name||"Membre",
+                  author:r.author_name||"Membre",
+                  texte:r.text||"",
+                  text:r.text||"",
+                  date:r.time?new Date(r.time*1000).toISOString().split("T")[0]:new Date().toISOString().split("T")[0],
+                  source:"Google-Auto",
+                  tags:analyzeAvisText(r.text||"")
+                });
+              });
+            }
+            updated++;
+            if(updated>=total){
+              DATA.lastGoogleAutoRefresh=new Date().toISOString();
+              saveData();
+              render();
+              showToast("⭐ Avis Google mis à jour — "+updated+" clubs rafraîchis");
+            }
+          } else {
+            updated++;
+            if(updated>=total){
+              DATA.lastGoogleAutoRefresh=new Date().toISOString();
+              saveData();render();
+            }
+          }
+        });
+      },idx*300); // Stagger requests to avoid rate limiting
+    });
+  });
+}
+
+// Analyze review text for tags (equipment, cleanliness, etc.)
+function analyzeAvisText(text){
+  if(!text)return[];
+  var tags=[];
+  var t=text.toLowerCase();
+  if(/machine|equip|appareil|tapis|v[eé]lo|poids|halt[eè]re|broken|panne|hs/i.test(t)){
+    tags.push({label:"Équipement",type:t.match(/cass|broken|panne|hs|dirty|sale/i)?"negatif":"positif"});
+  }
+  if(/propre|clean|neat|nickel|impeccable/i.test(t)){tags.push({label:"Propreté",type:"positif"})}
+  if(/sale|dirty|dégueul|crade|salet/i.test(t)){tags.push({label:"Propreté",type:"negatif"})}
+  if(/accueil|reception|staff|personnel|agent|friendly|gentil|aimable|professi/i.test(t)){
+    tags.push({label:"Accueil",type:t.match(/unfriendly|rude|désagré|incomp/i)?"negatif":"positif"});
+  }
+  if(/sécurit|secur|danger|vol|theft|camera/i.test(t)){tags.push({label:"Sécurité",type:"negatif"})}
+  if(/price|prix|cheap|cher|expensive|tarif|abonne/i.test(t)){tags.push({label:"Prix",type:"neutre"})}
+  if(/horaire|hour|24|ouvert|ferm|close/i.test(t)){tags.push({label:"Horaires",type:"neutre"})}
+  return tags;
+}
+
+// ═══ CHECKLIST + CONTACT FUNCTIONS ═══
+window.startChecklist=function(clubName){
+  if(!DATA.checklistLogs)DATA.checklistLogs=[];
+  var todayStr=new Date().toISOString().split("T")[0];
+  var existing=DATA.checklistLogs.find(function(l){return l.club===clubName&&l.date===todayStr});
+  if(!existing){
+    DATA.checklistLogs.push({club:clubName,date:todayStr,time:new Date().toTimeString().substring(0,5),items:{}});
+    if(!DATA.clubVisitLog)DATA.clubVisitLog=[];
+    DATA.clubVisitLog.push({club:clubName,date:todayStr,time:new Date().toTimeString().substring(0,5)});
+    logChange("Visite + check-list: "+clubName);saveData();render();showToast("Check-list demarree — "+clubName);
+  }
+};
+window.startCheckByIdx=function(idx){var c=DATA.clubs[idx];if(c)startChecklist(c.name)};
+window.toggleCheckItem=function(clubName,itemId){
+  if(!DATA.checklistLogs)DATA.checklistLogs=[];
+  var todayStr=new Date().toISOString().split("T")[0];
+  var log=DATA.checklistLogs.find(function(l){return l.club===clubName&&l.date===todayStr});
+  if(!log){log={club:clubName,date:todayStr,time:new Date().toTimeString().substring(0,5),items:{}};DATA.checklistLogs.push(log);
+    if(!DATA.clubVisitLog)DATA.clubVisitLog=[];DATA.clubVisitLog.push({club:clubName,date:todayStr,time:new Date().toTimeString().substring(0,5)});}
+  log.items[itemId]=!log.items[itemId];saveData();render();
+};
+window.toggleCheckByIdx=function(idx,itemId){var c=DATA.clubs[idx];if(c)toggleCheckItem(c.name,itemId)};
+window.addContactForm=function(){
+  showModal('<div class="form-title">+ Contact</div><div class="form-group"><label class="form-label">Nom *</label><input class="form-input" id="fCtNom"></div><div class="form-group"><label class="form-label">Role</label><input class="form-input" id="fCtRole"></div><div style="display:flex;gap:10px"><div class="form-group" style="flex:1"><label class="form-label">Tel</label><input class="form-input" id="fCtTel"></div><div class="form-group" style="flex:1"><label class="form-label">Email</label><input class="form-input" id="fCtEmail"></div></div><div class="form-actions"><button class="form-cancel" onclick="closeModal()">Annuler</button><button class="form-submit" onclick="saveContact()">Ajouter</button></div>');
+};
+window.saveContact=function(){
+  var nom=document.getElementById("fCtNom").value.trim();if(!nom){showToast("Nom requis");return}
+  if(!DATA.contactsInternes)DATA.contactsInternes=[];
+  DATA.contactsInternes.push({id:Date.now(),nom:nom,role:document.getElementById("fCtRole").value||"",tel:document.getElementById("fCtTel").value||"",email:document.getElementById("fCtEmail").value||""});
+  saveData();closeModal();render();
+};
+window.editContact=function(id){
+  var c=(DATA.contactsInternes||[]).find(function(x){return x.id===id});if(!c)return;
+  _editContactId=id;
+  showModal('<div class="form-title">'+c.nom+'</div><div class="form-group"><label class="form-label">Nom</label><input class="form-input" id="fCtNom" value="'+c.nom.replace(/"/g,"&quot;")+'"></div><div class="form-group"><label class="form-label">Role</label><input class="form-input" id="fCtRole" value="'+(c.role||"").replace(/"/g,"&quot;")+'"></div><div style="display:flex;gap:10px"><div class="form-group" style="flex:1"><label class="form-label">Tel</label><input class="form-input" id="fCtTel" value="'+(c.tel||"")+'"></div><div class="form-group" style="flex:1"><label class="form-label">Email</label><input class="form-input" id="fCtEmail" value="'+(c.email||"")+'"></div></div><div class="form-actions"><button class="form-cancel" onclick="closeModal()">Annuler</button><button class="btn-danger" style="margin-right:auto" onclick="deleteContactById()">Suppr</button><button class="form-submit" onclick="updateContactById()">OK</button></div>');
+};
+var _editContactId=null;
+window.deleteContactById=function(){
+  if(!_editContactId)return;
+  DATA.contactsInternes=DATA.contactsInternes.filter(function(x){return x.id!==_editContactId});
+  saveData();closeModal();render();
+};
+window.updateContactById=function(){
+  if(!_editContactId)return;
+  var c=DATA.contactsInternes.find(function(x){return x.id===_editContactId});if(!c)return;
+  c.nom=document.getElementById("fCtNom").value;
+  c.role=document.getElementById("fCtRole").value;
+  c.tel=document.getElementById("fCtTel").value;
+  c.email=document.getElementById("fCtEmail").value;
+  saveData();closeModal();render();
+};
+
+// ═══ CARTE & TRAJETS FUNCTIONS ═══
+var CLUB_COLORS_MAP=["#0D9488","#3B82F6","#8B5CF6","#EA580C","#16A34A"];
+
+window.logClubVisit=function(clubIdx){
+  var c=DATA.clubs[clubIdx];if(!c)return;
+  if(!DATA.clubVisitLog)DATA.clubVisitLog=[];
+  DATA.clubVisitLog.push({club:c.name,date:new Date().toISOString().split("T")[0],time:new Date().toTimeString().substring(0,5)});
+  logChange("Visite: "+c.name);
+  saveData();render();showToast("📍 Visite enregistrée — "+c.name);
+};
+
+window.openWaze=function(clubIdx){
+  var c=DATA.clubs[clubIdx];if(!c||!c.lat)return;
+  window.open("https://waze.com/ul?ll="+c.lat+","+c.lng+"&navigate=yes&z=15","_blank");
+};
+
+window.openGoogleMaps=function(clubIdx){
+  var c=DATA.clubs[clubIdx];if(!c||!c.lat)return;
+  window.open("https://www.google.com/maps/dir/?api=1&destination="+c.lat+","+c.lng+"&travelmode=driving","_blank");
+};
+
+window.openWazeRoute=function(){
+  // Open Waze with first stop (Meaux), user can chain stops
+  var route=["Meaux Victoire","Chauconin-Neufmontiers","Nanteuil-lès-Meaux","Serris Danube","Lagny-sur-Marne"];
+  var first=DATA.clubs.find(function(c){return c.name===route[0]});
+  if(first&&first.lat)window.open("https://waze.com/ul?ll="+first.lat+","+first.lng+"&navigate=yes","_blank");
+  showToast("🚗 Waze ouvert — Route: Meaux → Chauconin → Nanteuil → Serris → Lagny");
+};
+
+window.openGoogleMapsRoute=function(){
+  // Build Google Maps URL with all stops
+  var route=["Meaux Victoire","Chauconin-Neufmontiers","Nanteuil-lès-Meaux","Serris Danube","Lagny-sur-Marne"];
+  var coords=route.map(function(name){var c=DATA.clubs.find(function(x){return x.name===name});return c?c.lat+","+c.lng:null}).filter(Boolean);
+  if(coords.length<2)return;
+  var url="https://www.google.com/maps/dir/"+coords.join("/")+"/";
+  window.open(url,"_blank");
+};
+
+// ═══ WORKDAY FUNCTIONS — IMPORT AGENTS EXCEL ═══
+// Charge la bibliothèque de lecture Excel (SheetJS) une seule fois, à la demande
+let _xlsxLoaded=false;
+function loadXLSX(){
+  return new Promise(function(resolve){
+    if(_xlsxLoaded&&window.XLSX){resolve(true);return}
+    if(window.XLSX){_xlsxLoaded=true;resolve(true);return}
+    var script=document.createElement("script");
+    script.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+    script.onload=function(){_xlsxLoaded=true;resolve(true)};
+    script.onerror=function(){showToast("⚠ Impossible de charger le module Excel (vérifie ta connexion)");resolve(false)};
+    document.head.appendChild(script);
+  });
+}
+
+window.importWorkdayAgentsExcel=function(){
+  var inp=document.createElement("input");inp.type="file";inp.accept=".xlsx,.xls,.csv";inp.style.display="none";
+  inp.onchange=function(e){if(e.target.files[0])processWorkdayImport(e.target.files[0],"agents")};
+  document.body.appendChild(inp);inp.click();
+};
+
+window.importWorkdayPlanningExcel=function(){
+  var inp=document.createElement("input");inp.type="file";inp.accept=".xlsx,.xls,.csv";inp.style.display="none";
+  inp.onchange=function(e){if(e.target.files[0])processWorkdayImport(e.target.files[0],"planning")};
+  document.body.appendChild(inp);inp.click();
+};
+
+window.processWorkdayImport=async function(file,type){
+  var ok=await loadXLSX();if(!ok)return;
+  var data=await file.arrayBuffer();
+  var wb=XLSX.read(data,{type:"array",cellDates:true});
+  var ws=wb.Sheets[wb.SheetNames[0]];
+  var json=XLSX.utils.sheet_to_json(ws,{defval:"",raw:false});
+  if(json.length===0){showToast("Fichier vide");return}
+  var headers=Object.keys(json[0]);
+  if(type==="agents"){
+    // Auto-map: look for name, club, contract type, hours
+    var nameCol=headers.find(function(h){return /nom|name|agent|collabor/i.test(h)})||headers[0];
+    var clubCol=headers.find(function(h){return /club|salle|site|lieu/i.test(h)})||"";
+    var contratCol=headers.find(function(h){return /contrat|contract|type/i.test(h)})||"";
+    var heuresCol=headers.find(function(h){return /heure|hour|h\b|temps/i.test(h)})||"";
+    var posteCol=headers.find(function(h){return /poste|role|fonction|job/i.test(h)})||"";
+    var wdIdCol=headers.find(function(h){return /workday|wd|id\b|matricule/i.test(h)})||"";
+    if(!DATA.workday)DATA.workday={employees:[],notes:[],lastSync:""};
+    var count=0;
+    json.forEach(function(row){
+      var nom=row[nameCol];if(!nom)return;
+      DATA.workday.employees.push({
+        id:Date.now()+count,nom:String(nom).trim(),
+        club:row[clubCol]||"",contrat:row[contratCol]||"CDI",
+        heures:parseFloat(row[heuresCol])||35,poste:row[posteCol]||"Host",
+        workdayId:row[wdIdCol]||"",statut:"actif",note:"Importé depuis "+file.name,
+        dateAdded:new Date().toISOString().split("T")[0]
+      });
+      count++;
+    });
+    DATA.workday.lastSync=new Date().toISOString().split("T")[0];
+    logChange("Import Workday: "+count+" agents depuis "+file.name);
+    addNotification("👥 Import Workday",count+" agents importés depuis "+file.name,"info");
+    saveData();render();showToast("✓ "+count+" agents importés");
+  } else if(type==="planning"){
+    if(!DATA.agentPlanning)DATA.agentPlanning=[];
+if(!DATA.checklistLogs)DATA.checklistLogs=[];
+if(!DATA.contactsInternes)DATA.contactsInternes=[{id:1,nom:"Florian GALLO",role:"Regional Manager",tel:"+33607316241",region:"BFFR03.36"},{id:2,nom:"Mathilde Heimst",role:"Ticketing SSD & CVC / Facility",tel:""},{id:3,nom:"Shanael Zaoui",role:"HRBP",tel:""},{id:4,nom:"Thomas Marechal",role:"FSD",tel:""},{id:5,nom:"Laura Joeckle",role:"Conformite & Formations",tel:""},{id:6,nom:"Pierre Fuoc",role:"Planning",tel:""},{id:7,nom:"Sanaa Hilmi",role:"Quality Assessment",tel:""},{id:8,nom:"Ana Castro",role:"Partner Manager",tel:""}];
+if(!DATA.googleApiKey)DATA.googleApiKey="";
+if(!DATA.lastGoogleAutoRefresh)DATA.lastGoogleAutoRefresh="";
+    var count=0;
+    json.forEach(function(row){
+      DATA.agentPlanning.push({id:Date.now()+count,data:row,imported:new Date().toISOString()});
+      count++;
+    });
+    logChange("Import planning: "+count+" lignes depuis "+file.name);
+    saveData();render();showToast("✓ "+count+" lignes de planning importées");
+  }
+};
+
+// ═══ WORKDAY FUNCTIONS ═══
+window.addWorkdayEmployee=function(){
+  var clubSel='<option value="">(choisir)</option>';
+  DATA.clubs.forEach(function(c){clubSel+='<option value="'+c.name+'">'+c.name+'</option>'});
+  showModal('<div class="form-title">👥 Nouveau collaborateur</div>'+
+    '<div class="form-group"><label class="form-label">Nom complet *</label><input class="form-input" id="fWdNom" placeholder="Ex: Jean DUPONT"></div>'+
+    '<div style="display:flex;gap:10px"><div class="form-group" style="flex:1"><label class="form-label">Club *</label><select class="form-select" id="fWdClub">'+clubSel+'</select></div>'+
+    '<div class="form-group" style="flex:1"><label class="form-label">Contrat</label><select class="form-select" id="fWdContrat"><option value="CDI">CDI</option><option value="CDD">CDD</option><option value="Alternance">Alternance</option><option value="Stage">Stage</option><option value="Intérim">Intérim</option></select></div></div>'+
+    '<div style="display:flex;gap:10px"><div class="form-group" style="flex:1"><label class="form-label">Heures / semaine</label><input class="form-input" type="number" id="fWdHeures" value="35" step="0.5"></div>'+
+    '<div class="form-group" style="flex:1"><label class="form-label">Poste</label><input class="form-input" id="fWdPoste" placeholder="Ex: Host, Réceptionniste"></div></div>'+
+    '<div style="display:flex;gap:10px"><div class="form-group" style="flex:1"><label class="form-label">Workday ID</label><input class="form-input" id="fWdId" placeholder="Ex: WD-00012345"></div>'+
+    '<div class="form-group" style="flex:1"><label class="form-label">Statut</label><select class="form-select" id="fWdStatut"><option value="actif">Actif</option><option value="absent">Absent</option><option value="formation">Formation</option><option value="congé">Congé</option></select></div></div>'+
+    '<div class="form-group"><label class="form-label">Note</label><textarea class="form-textarea" id="fWdNote" rows="2" placeholder="Infos complémentaires..."></textarea></div>'+
+    '<div class="form-actions"><button class="form-cancel" onclick="closeModal()">Annuler</button><button class="form-submit" onclick="saveWorkdayEmployee()">Ajouter</button></div>');
+};
+
+window.saveWorkdayEmployee=function(){
+  var nom=document.getElementById("fWdNom").value.trim();
+  var club=document.getElementById("fWdClub").value;
+  if(!nom||!club){showToast("Nom et club requis");return}
+  if(!DATA.workday)DATA.workday={employees:[],notes:[],lastSync:""};
+if(!DATA.clubVisitLog)DATA.clubVisitLog=[];
+if(!DATA.agentPlanning)DATA.agentPlanning=[];
+if(!DATA.checklistLogs)DATA.checklistLogs=[];
+if(!DATA.contactsInternes)DATA.contactsInternes=[{id:1,nom:"Florian GALLO",role:"Regional Manager",tel:"+33607316241",region:"BFFR03.36"},{id:2,nom:"Mathilde Heimst",role:"Ticketing SSD & CVC / Facility",tel:""},{id:3,nom:"Shanael Zaoui",role:"HRBP",tel:""},{id:4,nom:"Thomas Marechal",role:"FSD",tel:""},{id:5,nom:"Laura Joeckle",role:"Conformite & Formations",tel:""},{id:6,nom:"Pierre Fuoc",role:"Planning",tel:""},{id:7,nom:"Sanaa Hilmi",role:"Quality Assessment",tel:""},{id:8,nom:"Ana Castro",role:"Partner Manager",tel:""}];
+if(!DATA.googleApiKey)DATA.googleApiKey="";
+if(!DATA.lastGoogleAutoRefresh)DATA.lastGoogleAutoRefresh="";
+  DATA.workday.employees.push({
+    id:Date.now(),nom:nom,club:club,
+    contrat:document.getElementById("fWdContrat").value,
+    heures:parseFloat(document.getElementById("fWdHeures").value)||35,
+    poste:document.getElementById("fWdPoste").value||"Host",
+    workdayId:document.getElementById("fWdId").value||"",
+    statut:document.getElementById("fWdStatut").value||"actif",
+    note:document.getElementById("fWdNote").value||"",
+    dateAdded:new Date().toISOString().split("T")[0]
+  });
+  logChange("Workday: +"+nom+" ("+club+")");
+  saveData();closeModal();render();
+  showToast("Collaborateur ajouté");
+};
+
+window.editWorkdayEmployee=function(id){
+  var e=DATA.workday.employees.find(function(x){return x.id===id});
+  if(!e)return;
+  var clubSel='<option value="">(choisir)</option>';
+  DATA.clubs.forEach(function(c){clubSel+='<option value="'+c.name+'"'+(c.name===e.club?' selected':'')+'>'+c.name+'</option>'});
+  showModal('<div class="form-title">✏ Modifier '+e.nom+'</div>'+
+    '<div class="form-group"><label class="form-label">Nom</label><input class="form-input" id="fWdNom" value="'+e.nom.replace(/"/g,"&quot;")+'"></div>'+
+    '<div style="display:flex;gap:10px"><div class="form-group" style="flex:1"><label class="form-label">Club</label><select class="form-select" id="fWdClub">'+clubSel+'</select></div>'+
+    '<div class="form-group" style="flex:1"><label class="form-label">Contrat</label><select class="form-select" id="fWdContrat">'+["CDI","CDD","Alternance","Stage","Intérim"].map(function(t){return '<option'+(t===e.contrat?' selected':'')+'>'+t+'</option>'}).join('')+'</select></div></div>'+
+    '<div style="display:flex;gap:10px"><div class="form-group" style="flex:1"><label class="form-label">Heures</label><input class="form-input" type="number" id="fWdHeures" value="'+e.heures+'" step="0.5"></div>'+
+    '<div class="form-group" style="flex:1"><label class="form-label">Poste</label><input class="form-input" id="fWdPoste" value="'+(e.poste||"")+'"></div></div>'+
+    '<div style="display:flex;gap:10px"><div class="form-group" style="flex:1"><label class="form-label">Workday ID</label><input class="form-input" id="fWdId" value="'+(e.workdayId||"")+'"></div>'+
+    '<div class="form-group" style="flex:1"><label class="form-label">Statut</label><select class="form-select" id="fWdStatut">'+["actif","absent","formation","congé"].map(function(t){return '<option'+(t===e.statut?' selected':'')+'>'+t+'</option>'}).join('')+'</select></div></div>'+
+    '<div class="form-group"><label class="form-label">Note</label><textarea class="form-textarea" id="fWdNote" rows="2">'+(e.note||"")+'</textarea></div>'+
+    '<div class="form-actions"><button class="form-cancel" onclick="closeModal()">Annuler</button><button class="form-submit" onclick="updateWorkdayEmployee('+id+')">Enregistrer</button></div>');
+};
+
+window.updateWorkdayEmployee=function(id){
+  var e=DATA.workday.employees.find(function(x){return x.id===id});
+  if(!e)return;
+  e.nom=document.getElementById("fWdNom").value;
+  e.club=document.getElementById("fWdClub").value;
+  e.contrat=document.getElementById("fWdContrat").value;
+  e.heures=parseFloat(document.getElementById("fWdHeures").value)||35;
+  e.poste=document.getElementById("fWdPoste").value;
+  e.workdayId=document.getElementById("fWdId").value;
+  e.statut=document.getElementById("fWdStatut").value;
+  e.note=document.getElementById("fWdNote").value;
+  saveData();closeModal();render();
+};
+
+window.deleteWorkdayEmployee=function(id){
+  if(!confirm("Supprimer ce collaborateur ?"))return;
+  DATA.workday.employees=DATA.workday.employees.filter(function(x){return x.id!==id});
+  saveData();render();showToast("Collaborateur supprimé");
+};
+
+window.addWorkdayNote=function(){
+  var agentSel='<option value="">(aucun)</option>';
+  (DATA.workday?DATA.workday.employees:[]).forEach(function(e){agentSel+='<option value="'+e.nom+'">'+e.nom+'</option>'});
+  var clubSel='<option value="">(aucun)</option>';
+  DATA.clubs.forEach(function(c){clubSel+='<option value="'+c.name+'">'+c.name+'</option>'});
+  showModal('<div class="form-title">📝 Note RH</div>'+
+    '<div class="form-group"><label class="form-label">Titre *</label><input class="form-input" id="fWnTitre" placeholder="Ex: Entretien recadrage, Demande de congé..."></div>'+
+    '<div style="display:flex;gap:10px"><div class="form-group" style="flex:1"><label class="form-label">Catégorie</label><select class="form-select" id="fWnCat"><option value="info">ℹ Info</option><option value="entretien">💬 Entretien</option><option value="disciplinaire">⚠ Disciplinaire</option><option value="formation">📚 Formation</option><option value="admin">📋 Admin</option></select></div>'+
+    '<div class="form-group" style="flex:1"><label class="form-label">Agent concerné</label><select class="form-select" id="fWnAgent">'+agentSel+'</select></div></div>'+
+    '<div class="form-group"><label class="form-label">Club</label><select class="form-select" id="fWnClub">'+clubSel+'</select></div>'+
+    '<div class="form-group"><label class="form-label">Contenu *</label><textarea class="form-textarea" id="fWnContenu" rows="4" placeholder="Détails de la note..."></textarea></div>'+
+    '<div class="form-actions"><button class="form-cancel" onclick="closeModal()">Annuler</button><button class="form-submit" onclick="saveWorkdayNote()">Enregistrer</button></div>');
+};
+
+window.saveWorkdayNote=function(){
+  var titre=document.getElementById("fWnTitre").value.trim();
+  var contenu=document.getElementById("fWnContenu").value.trim();
+  if(!titre||!contenu){showToast("Titre et contenu requis");return}
+  if(!DATA.workday)DATA.workday={employees:[],notes:[],lastSync:""};
+if(!DATA.clubVisitLog)DATA.clubVisitLog=[];
+if(!DATA.agentPlanning)DATA.agentPlanning=[];
+if(!DATA.checklistLogs)DATA.checklistLogs=[];
+if(!DATA.contactsInternes)DATA.contactsInternes=[{id:1,nom:"Florian GALLO",role:"Regional Manager",tel:"+33607316241",region:"BFFR03.36"},{id:2,nom:"Mathilde Heimst",role:"Ticketing SSD & CVC / Facility",tel:""},{id:3,nom:"Shanael Zaoui",role:"HRBP",tel:""},{id:4,nom:"Thomas Marechal",role:"FSD",tel:""},{id:5,nom:"Laura Joeckle",role:"Conformite & Formations",tel:""},{id:6,nom:"Pierre Fuoc",role:"Planning",tel:""},{id:7,nom:"Sanaa Hilmi",role:"Quality Assessment",tel:""},{id:8,nom:"Ana Castro",role:"Partner Manager",tel:""}];
+if(!DATA.googleApiKey)DATA.googleApiKey="";
+if(!DATA.lastGoogleAutoRefresh)DATA.lastGoogleAutoRefresh="";
+  DATA.workday.notes.push({
+    id:Date.now(),titre:titre,contenu:contenu,
+    categorie:document.getElementById("fWnCat").value,
+    agent:document.getElementById("fWnAgent").value||"",
+    club:document.getElementById("fWnClub").value||"",
+    date:new Date().toISOString()
+  });
+  logChange("Note RH: "+titre);
+  saveData();closeModal();render();
+};
+
+window.deleteWorkdayNote=function(id){
+  if(!confirm("Supprimer cette note ?"))return;
+  DATA.workday.notes=DATA.workday.notes.filter(function(x){return x.id!==id});
+  saveData();render();
+};
+
+// ═══ GOOGLE REVIEWS AUTO-REFRESH ═══
+window.refreshGoogleReviews=function(clubName){
+  var c=DATA.clubs.find(function(x){return x.name===clubName});
+  if(!c||!c.placeId)return;
+  window.open("https://www.google.com/maps/place/?q=place_id:"+c.placeId,"_blank");
+  DATA.avisLastFetch[clubName]=new Date().toISOString().split("T")[0];
+  saveData();render();
+  showToast("Google Maps ouvert pour "+clubName+" — mets à jour les avis manuellement");
+};
+
+window.refreshAllGoogleReviews=function(){
+  DATA.clubs.forEach(function(c){
+    if(c.placeId){
+      DATA.avisLastFetch[c.name]=new Date().toISOString().split("T")[0];
+    }
+  });
+  window.open("https://www.google.com/maps/search/Basic-Fit+Seine-et-Marne","_blank");
+  saveData();render();
+  showToast("Ouvre chaque club sur Google Maps pour vérifier les avis");
+};
+
+// Check if reviews need refresh (>24h) — called in checkReminders
+function checkGoogleReviewsAge(){
+  var today=new Date().toISOString().split("T")[0];
+  var stale=DATA.clubs.filter(function(c){
+    var last=DATA.avisLastFetch[c.name];
+    return !last||last<today;
+  });
+  if(stale.length>0&&!DATA._reviewReminderSent){
+    addNotification("⭐ Avis Google à rafraîchir",stale.length+" club(s) n'ont pas été vérifiés aujourd'hui","reminder");
+    DATA._reviewReminderSent=today;
+  }
+  if(DATA._reviewReminderSent&&DATA._reviewReminderSent<today){
+    DATA._reviewReminderSent=null; // Reset for new day
+  }
+}
+
+// Import helper - start import for a specific club by index
+window.startClubImport=function(clubIdx){
+  var club=DATA.clubs[clubIdx];
+  if(!club)return;
+  _importSelectedClub=club.name;
+  var inp=document.getElementById("clubFileInput");
+  if(!inp){inp=document.createElement("input");inp.type="file";inp.accept=".xlsx,.xls,.csv";inp.style.display="none";inp.id="clubFileInput";document.body.appendChild(inp)}
+  inp.value="";
+  inp.onchange=function(e){if(e.target.files[0])handleImportFile(e.target.files[0])};
+  inp.click();
+};
+window.startGenericImport=function(){
+  _importSelectedClub="__generic__";
+  var inp=document.getElementById("genericFileInput");
+  if(!inp){inp=document.createElement("input");inp.type="file";inp.accept=".xlsx,.xls,.csv";inp.style.display="none";inp.id="genericFileInput";document.body.appendChild(inp)}
+  inp.value="";
+  inp.onchange=function(e){if(e.target.files[0])handleImportFile(e.target.files[0])};
+  inp.click();
+};
+// Build import club cards (avoids template literal issues with special chars)
+function buildImportClubCards(){
+  var html="";
+  DATA.clubs.forEach(function(c,idx){
+    var tkCount=DATA.tickets.filter(function(t){return t.club===c.name}).length;
+    var tkActive=DATA.tickets.filter(function(t){return t.club===c.name&&t.status!=="termine"}).length;
+    var lastArr=(DATA.importHistory||[]).filter(function(h){return h.club===c.name}).sort(function(a,b){return new Date(b.date)-new Date(a.date)});
+    var lastImp=lastArr.length>0?lastArr[0]:null;
+    var statusIcon=c.status==="ok"?"✅ OK":c.status==="alert"?"⚠️ Alerte":"🔧 Travaux";
+    var activeBg=tkActive>0?"#FEF3C7":"#F0FDF4";
+    var activeColor=tkActive>0?"#92400E":"#065F46";
+    html+='<div style="border:2px solid #E5E7EB;border-radius:12px;padding:16px;background:#fff;transition:.2s" onmouseover="this.style.borderColor=\'#FE7F00\'" onmouseout="this.style.borderColor=\'#E5E7EB\'">';
+    html+='<div style="display:flex;justify-content:space-between;align-items:start">';
+    html+='<div><div style="font-weight:700;font-size:15px;color:#0F1729">'+c.name+'</div>';
+    html+='<div style="font-size:11px;color:#6B7280;margin-top:2px">KP '+c.code+' · '+statusIcon+'</div></div>';
+    html+='<div style="text-align:right"><div style="font-size:24px;font-weight:700;color:#FE7F00">'+tkCount+'</div><div style="font-size:10px;color:#6B7280">tickets</div></div>';
+    html+='</div>';
+    html+='<div style="display:flex;gap:8px;margin-top:8px;font-size:11px;color:#6B7280">';
+    html+='<span style="padding:2px 8px;background:'+activeBg+';border-radius:10px;color:'+activeColor+'">'+tkActive+' actif'+(tkActive>1?'s':'')+'</span>';
+    html+='<span>'+(lastImp?'📥 '+fmtDateShort(lastImp.date):'Jamais importé')+'</span>';
+    html+='</div>';
+    html+='<button class="btn-add" style="width:100%;margin-top:12px;justify-content:center;font-size:13px" onclick="event.stopPropagation();startClubImport('+idx+')">📂 Importer pour '+c.name+'</button>';
+    html+='</div>';
+  });
+  return html;
+}
+
+window.handleImportFile=async function(file){
+  if(!file)return;
+  const ok=await loadXLSX();if(!ok)return;
+  const data=await file.arrayBuffer();
+  const wb=XLSX.read(data,{type:"array",cellDates:true});
+  _importPreview={filename:file.name,size:file.size,sheets:[],wb,targetClub:_importSelectedClub||""};
+  wb.SheetNames.forEach((name)=>{
+    const ws=wb.Sheets[name];
+    const json=XLSX.utils.sheet_to_json(ws,{defval:"",raw:false});
+    const headers=json.length>0?Object.keys(json[0]):[];
+    _importPreview.sheets.push({name,headers,rows:json,count:json.length});
+  });
+  _importSheetIdx=0;
+  if(_importSelectedClub&&_importSelectedClub!=="__generic__"){
+    _importPreview.detectedType="tickets";
+    _importPreview.mapping=autoMapColumns(_importPreview.sheets[0]?.headers||[],"tickets");
+  }else{
+    detectImportType();
+  }
+  render();
+};
+
+function detectImportType(){
+  if(!_importPreview||_importPreview.sheets.length===0)return;
+  const sheet=_importPreview.sheets[_importSheetIdx];
+  const h=sheet.headers.map(x=>x.toLowerCase());
+  if(h.some(x=>x.includes("ticket")||x.includes("n°")||x.includes("numero"))||h.some(x=>x.includes("priorit")||x.includes("intervenant")))
+    _importPreview.detectedType="tickets";
+  else if(h.some(x=>x.includes("agent")||x.includes("nom"))&&h.some(x=>x.includes("club")||x.includes("salle")))
+    _importPreview.detectedType="team";
+  else if(h.some(x=>x.includes("incident")||x.includes("sévérité")||x.includes("severite")))
+    _importPreview.detectedType="incidents";
+  else if(h.some(x=>x.includes("avis")||x.includes("étoile")||x.includes("star"))&&h.some(x=>x.includes("texte")||x.includes("commentaire")))
+    _importPreview.detectedType="avis";
+  else _importPreview.detectedType="custom";
+  _importPreview.mapping=autoMapColumns(sheet.headers,_importPreview.detectedType);
+}
+
+function autoMapColumns(headers,type){
+  const m={};const h=headers.map(x=>x.toLowerCase());
+  if(type==="tickets"){
+    m.number=headers[findCol(h,["n°","numero","ticket","numéro","ref","référence"])];
+    m.club=headers[findCol(h,["club","site","établissement","salle"])];
+    m.title=headers[findCol(h,["titre","problème","probleme","sujet","description","objet"])];
+    m.priority=headers[findCol(h,["priorité","priorite","urgence","prio"])];
+    m.status=headers[findCol(h,["statut","status","état","etat"])];
+    m.salle=headers[findCol(h,["salle","zone","lieu","emplacement"])];
+    m.intervenant=headers[findCol(h,["intervenant","société","societe","prestataire","fournisseur"])];
+    m.date=headers[findCol(h,["date","créé","cree","création","creation","ouvert"])];
+    m.description=headers[findCol(h,["description","détail","detail","commentaire","note"])];
+    m.ref=headers[findCol(h,["ref","référence","reference","réf"])];
+  }else if(type==="team"){
+    m.name=headers[findCol(h,["nom","agent","prénom","prenom","collaborateur"])];
+    m.club=headers[findCol(h,["club","site"])];m.role=headers[findCol(h,["rôle","role","poste","contrat"])];
+    m.salle=headers[findCol(h,["salle","affectation","zone"])];
+  }else if(type==="incidents"){
+    m.club=headers[findCol(h,["club","site"])];m.type=headers[findCol(h,["type","incident","motif"])];
+    m.agent=headers[findCol(h,["agent","nom"])];m.severity=headers[findCol(h,["sévérité","severite","gravité"])];
+    m.date=headers[findCol(h,["date"])];
+  }else if(type==="avis"){
+    m.club=headers[findCol(h,["club","site"])];m.stars=headers[findCol(h,["note","étoile","star","rating"])];
+    m.author=headers[findCol(h,["auteur","nom"])];m.text=headers[findCol(h,["texte","avis","commentaire"])];
+    m.date=headers[findCol(h,["date"])];
+  }
+  return m;
+}
+function findCol(headers,keywords){for(const kw of keywords){const i=headers.findIndex(h=>h.includes(kw));if(i>=0)return i}return 0}
+
+window.switchImportSheet=function(idx){_importSheetIdx=idx;detectImportType();render()};
+window.changeImportType=function(type){_importPreview.detectedType=type;_importPreview.mapping=autoMapColumns(_importPreview.sheets[_importSheetIdx].headers,type);render()};
+window.changeMapping=function(field,colName){_importPreview.mapping[field]=colName};
+window.cancelImport=function(){_importPreview=null;_importSelectedClub="";render()};
+window.deleteImportedFile=function(id){DATA.importedFiles=(DATA.importedFiles||[]).filter(f=>f.id!==id);saveData();render()};
+window.viewImportedFile=function(id){
+  const file=(DATA.importedFiles||[]).find(f=>f.id===id);if(!file)return;
+  _importPreview={filename:file.filename,size:0,sheets:file.sheets,isView:true,fileId:id};
+  _importSheetIdx=0;_importPreview.detectedType="view";render();
+};
+
+window.executeImport=function(){
+  if(!_importPreview)return;
+  const sheet=_importPreview.sheets[_importSheetIdx];
+  const type=_importPreview.detectedType;
+  const map=_importPreview.mapping;
+  const targetClub=_importPreview.targetClub||"";
+  let count=0;
+  if(!DATA.importHistory)DATA.importHistory=[];
+
+  if(type==="tickets"){
+    const clubName=targetClub&&targetClub!=="__generic__"?targetClub:DATA.clubs[0]?.name||"";
+    sheet.rows.forEach(row=>{
+      const title=getVal(row,map.title);if(!title)return;
+      const dateStr=getVal(row,map.date);
+      const date=parseDateFlex(dateStr)||new Date().toISOString().split("T")[0];
+      DATA.tickets.push({
+        id:Date.now()+count,number:getVal(row,map.number)||("IMP-"+(DATA.tickets.length+count+1)),
+        ref:getVal(row,map.ref)||"",club:clubName,salle:getVal(row,map.salle)||"",
+        title:title,description:getVal(row,map.description)||"",
+        intervenant:getVal(row,map.intervenant)||"",priority:mapPriority(getVal(row,map.priority)),
+        status:mapStatus(getVal(row,map.status)),dateCreated:date,dateTarget:"",
+        importedFrom:_importPreview.filename,importDate:new Date().toISOString()
+      });
+      count++;
+    });
+    DATA.tickets.sort((a,b)=>new Date(a.dateCreated)-new Date(b.dateCreated));
+    DATA.importHistory.push({date:new Date().toISOString(),filename:_importPreview.filename,club:clubName,type:"tickets",count});
+    logChange("Import tickets : "+count+" → "+clubName+" ("+_importPreview.filename+")");
+    addNotification("📥 Import tickets — "+clubName,count+" tickets importés depuis "+_importPreview.filename,"info");
+  }else if(type==="team"){
+    sheet.rows.forEach(row=>{
+      const name=getVal(row,map.name);if(!name)return;
+      if(DATA.team.some(t=>t.name.toLowerCase()===name.toLowerCase()))return;
+      DATA.team.push({id:Date.now()+count,name,club:getVal(row,map.club)||DATA.clubs[0]?.name||"",
+        role:getVal(row,map.role)||"Agent",salle:getVal(row,map.salle)||"Non affecté",color:"blue",rank:99,note:""});count++;
+    });
+    DATA.importHistory.push({date:new Date().toISOString(),filename:_importPreview.filename,club:"—",type:"team",count});
+    logChange("Import équipe : "+count+" agents");addNotification("📥 Import équipe",count+" agents importés","info");
+  }else if(type==="incidents"){
+    sheet.rows.forEach(row=>{
+      const t2=getVal(row,map.type);if(!t2)return;
+      DATA.incidents.push({id:Date.now()+count,club:getVal(row,map.club)||"",type:t2,
+        agent:getVal(row,map.agent)||"—",severity:mapSeverity(getVal(row,map.severity)),
+        date:parseDateFlex(getVal(row,map.date))||new Date().toISOString().split("T")[0],resolved:false});count++;
+    });
+    DATA.importHistory.push({date:new Date().toISOString(),filename:_importPreview.filename,club:"—",type:"incidents",count});
+    logChange("Import incidents : "+count);addNotification("📥 Import incidents",count+" incidents importés","info");
+  }else if(type==="avis"){
+    if(!DATA.avisGoogle)DATA.avisGoogle=[];if(!DATA.avisLastFetch)DATA.avisLastFetch={};
+    sheet.rows.forEach(row=>{
+      const text=getVal(row,map.text);if(!text)return;
+      const club=getVal(row,map.club)||"";
+      DATA.avisGoogle.push({id:Date.now()+count,club,stars:parseInt(getVal(row,map.stars))||3,
+        author:getVal(row,map.author)||"Anonyme",text,date:parseDateFlex(getVal(row,map.date))||new Date().toISOString().split("T")[0],
+        tags:analyzeAvisText(text),dateAdded:new Date().toISOString()});
+      DATA.avisLastFetch[club]=new Date().toISOString();count++;
+    });
+    DATA.importHistory.push({date:new Date().toISOString(),filename:_importPreview.filename,club:"—",type:"avis",count});
+    logChange("Import avis : "+count);addNotification("📥 Import avis",count+" avis importés","info");
+  }else{
+    if(!DATA.importedFiles)DATA.importedFiles=[];
+    DATA.importedFiles.push({id:Date.now(),filename:_importPreview.filename,
+      sheets:_importPreview.sheets.map(s=>({name:s.name,headers:s.headers,rows:s.rows,count:s.count})),
+      dateImported:new Date().toISOString()});count=sheet.count;
+    DATA.importHistory.push({date:new Date().toISOString(),filename:_importPreview.filename,club:"—",type:"fichier",count});
+    logChange("Fichier importé : "+_importPreview.filename);
+  }
+  saveData();_importPreview=null;_importSelectedClub="";
+  showToast("✓ "+count+" éléments importés");render();
+};
+
+function getVal(row,colName){if(!colName)return"";const v=row[colName];return v!==undefined&&v!==null?String(v).trim():""}
+function parseDateFlex(s){
+  if(!s)return null;s=String(s).trim();
+  if(/^\d{4}-\d{2}-\d{2}/.test(s))return s.substring(0,10);
+  const m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  if(m){const y=m[3].length===2?"20"+m[3]:m[3];return y+"-"+m[2].padStart(2,'0')+"-"+m[1].padStart(2,'0')}
+  const d=new Date(s);if(!isNaN(d))return d.toISOString().split("T")[0];return null;
+}
+function mapPriority(s){if(!s)return"normale";s=s.toLowerCase();if(s.includes("urgent"))return"urgente";if(s.includes("haut")||s.includes("high"))return"haute";if(s.includes("bass")||s.includes("low"))return"basse";return"normale"}
+function mapStatus(s){if(!s)return"ouvert";s=s.toLowerCase();if(s.includes("cours")||s.includes("progress"))return"encours";if(s.includes("planif"))return"planifie";if(s.includes("termin")||s.includes("clos")||s.includes("done"))return"termine";if(s.includes("attente"))return"attente";return"ouvert"}
+function mapSeverity(s){if(!s)return"moyenne";s=s.toLowerCase();if(s.includes("critiq"))return"critique";if(s.includes("haut"))return"haute";if(s.includes("bas"))return"basse";return"moyenne"}
+
+// ═══ RENDER + BOOT ═══
+function render(){renderTabs();renderFilters();renderContent()}
+
+// Boot: load sync first, then try async persistent storage
+render();
+
+(async()=>{
+  try{
+    const asyncData=await loadDataAsync();
+    if(asyncData){
+      DATA=asyncData;
+      hydrateData();
+      render();
+      updateSaveIndicator("saved");
+    }
+  }catch(e){console.log("Chargement Firestore ignoré:",e)}
+  // Démarre l'écoute en temps réel (synchro PC ↔ iPhone automatique)
+  startLiveSync();
+  // Check reminders every 30s
+  setInterval(checkReminders,30000);
+  checkReminders();
+  // Auto-fetch Google reviews on page load
+  if(DATA.googleApiKey){
+    setTimeout(function(){fetchAllGoogleReviews()},1500);
+  }
+  // Enregistre le Service Worker pour l'installation en app (PWA)
+  if("serviceWorker" in navigator){
+    navigator.serviceWorker.register("sw.js").catch(function(e){console.log("SW non enregistré:",e)});
+  }
+})();
