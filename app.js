@@ -23,6 +23,7 @@ const DEFAULT_MODULES=[
   {id:"agentsSalle",name:"Agents par salle",visible:true},
   {id:"volumeTickets",name:"Volume tickets par salle",visible:true},
   {id:"arrets",name:"🏥 Agents en arrêt (Maladie/AT)",visible:true},
+  {id:"absences",name:"🌴 Congés & absences (7 jours)",visible:true},
   {id:"tickets",name:"Tickets en cours",visible:true},
   {id:"performance",name:"Performance par club",visible:true},
 ];
@@ -210,6 +211,7 @@ function toggleReminderDone(id){const r=(DATA.reminders||[]).find(x=>x.id===id);
 function deleteReminder(id){const r=(DATA.reminders||[]).find(x=>x.id===id);DATA.reminders=DATA.reminders.filter(x=>x.id!==id);logChange("Rappel supprimé : "+(r?r.title:"?"));saveData();render()}
 function checkReminders(){
   checkCalendarAlerts();
+  checkAbsencesAlerts();
   checkGoogleReviewsAge();
   const now=new Date();
   (DATA.reminders||[]).forEach(r=>{
@@ -225,6 +227,9 @@ const _origSaveData=saveData;
 
 function hydrateData(){
   if(!DATA.arrets)DATA.arrets=[];
+  if(!DATA.absences)DATA.absences=[];
+  if(!DATA.absSettings)DATA.absSettings={seuil:2,alertJours:7,recapDest:""};
+  if(DATA.modules&&!DATA.modules.some(m=>m.id==="absences")){const i=DATA.modules.findIndex(m=>m.id==="arrets");DATA.modules.splice(i>=0?i+1:DATA.modules.length,0,{id:"absences",name:"🌴 Congés & absences (7 jours)",visible:true})}
   if(!DATA.modules)DATA.modules=JSON.parse(JSON.stringify(DEFAULT_MODULES));
   if(!DATA.notifications)DATA.notifications=[];
   if(!DATA.reminders)DATA.reminders=[];
@@ -365,6 +370,7 @@ const TABS=[
   {id:"overview",label:"Clubs",icon:"◉"},
   {id:"team",label:"Équipe & Salles",icon:"◇"},
   {id:"arrets",label:"Maladie & AT",icon:"🏥"},
+  {id:"absences",label:"Congés & Absences",icon:"🌴"},
   {id:"visits",label:"Visites",icon:"◈"},
   {id:"incidents",label:"Incidents",icon:"◆"},
   {id:"tickets",label:"Tickets travaux",icon:"⚙"},
@@ -386,6 +392,8 @@ function renderTabs(){
   c.innerHTML=TABS.map(t=>{
     let badge='';
     if(t.id==="arrets"&&activesCount>0)badge=`<span class="tab-badge">${activesCount}</span>`;
+    const absNow=absAujourdhui().length;
+    if(t.id==="absences"&&absNow>0)badge=`<span class="tab-badge" style="background:#F59E0B">${absNow}</span>`;
     if(t.id==="reminders"&&pendingReminders>0)badge=`<span class="tab-badge" style="${urgentReminders>0?'background:#DC2626':''}">${pendingReminders}</span>`;
     const overdueFollowups=getOverdueFollowups().length;
     const newCVs=(DATA.cvs||[]).filter(cv=>cv.status==="nouveau").length;
@@ -427,6 +435,7 @@ function getAgentStatus(agentId){
   // Détermine le statut d'un agent en tenant compte des arrêts actifs
   const arret=agentsEnArret().find(a=>a.agentId==agentId);
   if(arret)return arret.type; // "maladie" ou "AT"
+  if(absActiveForAgent(agentId))return "congé";
   const t=getAgent(agentId);
   return t?t.status:"présent";
 }
@@ -439,7 +448,8 @@ function renderAgentRow(t){
   if(realStatus==="maladie"){statusColor="#8B5CF6";statusLabel="🏥 Maladie"}
   else if(realStatus==="AT"){statusColor="#EC4899";statusLabel="⚠ AT"}
   else{statusColor=statColor(realStatus);statusLabel=statLabel(realStatus)}
-  const arretInfo=arret?` <span style="font-size:10px;color:#9CA3AF">jusqu'au ${fmtDateShort(arret.dateFin)||'?'}</span>`:'';
+  const absCur=arret?null:absActiveForAgent(t.id);
+  const arretInfo=arret?` <span style="font-size:10px;color:#9CA3AF">jusqu'au ${fmtDateShort(arret.dateFin)||'?'}</span>`:absCur?` <span style="font-size:10px;color:#9CA3AF">jusqu'au ${fmtDateShort(absCur.dateFin||absCur.dateDebut)}</span>`:'';
   const waBtn=t.tel?`<a href="https://wa.me/33${t.tel.replace(/[^0-9]/g,"").replace(/^0/,"")}" target="_blank" class="btn-secondary" style="text-decoration:none" title="WhatsApp">💬</a>`:'';
   return `<div class="panel-row"><div class="row-left"><span class="rank-badge">#${t.rank}</span><div class="avatar" style="background:${ch}">${ini(t.name)}</div><div><div class="row-name" style="display:flex;align-items:center;gap:6px">${t.name} <div class="color-tag" style="background:${ch}"></div></div><div class="row-sub">${t.club} · ${t.salle} · ${t.role}${t.note?' · '+t.note:''}</div></div></div><div class="row-right"><div class="agent-status-dot" style="background:${statusColor}"></div><span style="font-size:12px;font-weight:500;color:${statusColor};min-width:90px">${statusLabel}${arretInfo}</span>${waBtn}<button class="btn-move" onclick="moveRank(${t.id},-1)">▲</button><button class="btn-move" onclick="moveRank(${t.id},1)">▼</button><button class="btn-secondary" onclick="editAgent(${t.id})">Modifier</button><button class="btn-danger" onclick="deleteTeam(${t.id})">✕</button></div></div>`;
 }
@@ -455,6 +465,7 @@ function generateStatsText(){
   const maladies=arretsActifs.filter(a=>a.type==="maladie");
   const ATs=arretsActifs.filter(a=>a.type==="AT");
   const agentsPresent=fTeam.filter(t=>{const s=getAgentStatus(t.id);return s==="présent"}).length;
+  const absAuj=absFiltre(absAujourdhui());
   const tkActifs=fTk.filter(t=>t.status!=="termine").length;
   const tkTermine=fTk.filter(t=>t.status==="termine").length;
   const tkUrgent=fTk.filter(t=>t.priority==="urgente"&&t.status!=="termine").length;
@@ -476,6 +487,7 @@ function generateStatsText(){
     out+=`\n`;
   }
 
+  if(absAuj.length>0){out+=`🌴 EN CONGÉ AUJOURD'HUI (${absAuj.length})\n`;absAuj.forEach(a=>{out+=`  • ${absAgentName(a)} (${absAgentClub(a)}) - ${absTypeInfo(a.type).label} jusqu'au ${fmtDateShort(a.dateFin||a.dateDebut)}\n`});out+=`\n`}
   out+=`⚙ TICKETS TRAVAUX\n  • Actifs : ${tkActifs}\n  • Terminés : ${tkTermine}\n  • Urgents non résolus : ${tkUrgent}\n  • Taux de résolution : ${pct(tkTermine,fTk.length)}%\n\n`;
 
   const tkBySalle={};
@@ -577,6 +589,7 @@ function renderModule(id, fTeam, fTk) {
       ${topSallesTickets.map(([s,v])=>`<div class="chart-bar-row"><div class="chart-bar-label">${s}</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:${pct(v.total,maxSalleTk)}%;background:#8B5CF6">${v.total}</div></div></div>`).join("")}
     </div></div>`;
   }
+  if(id==="absences")return renderAbsencesModule(dragAttrs);
   if(id==="arrets"){
     if(arretsActifs.length===0)return `<div class="panel draggable" ${dragAttrs}><div class="panel-drag-handle">⋮⋮</div><div class="panel-header"><span class="panel-title">🏥 Agents en arrêt</span></div><div class="empty-state" style="padding:20px"><div style="font-size:13px;color:#16A34A">✓ Aucun arrêt en cours</div></div></div>`;
     return `<div class="panel draggable" ${dragAttrs}><div class="panel-drag-handle">⋮⋮</div><div class="panel-header"><span class="panel-title">🏥 Agents en arrêt (Maladie / AT)</span><span class="badge" style="background:#FEE2E2;color:#991B1B">${arretsActifs.length} en cours</span></div>
@@ -645,7 +658,7 @@ function renderContent(){
 
     const section=(icon,title,count,color,html)=>`<div class="panel" style="border-left:4px solid ${color};margin-bottom:14px"><div class="panel-header"><span class="panel-title">${icon} ${title}</span>${count!==null?`<span class="badge" style="background:${color}22;color:${color}">${count}</span>`:''}</div>${html}</div>`;
 
-    let html=`<div style="background:var(--c-primary-dark);border-radius:14px;padding:20px 24px;margin-bottom:18px;color:#fff"><div style="font-size:13px;opacity:.7;text-transform:capitalize">${jourStr} · ${heureStr}</div><div style="font-size:22px;font-weight:700;margin-top:4px">Bonjour Laurent 👋</div><div style="font-size:13px;opacity:.8;margin-top:4px">${agentsPresentTotal}/${DATA.team.length} agents présents · ${urgentTickets.length} ticket${urgentTickets.length>1?'s':''} prioritaire${urgentTickets.length>1?'s':''} · ${arretsActifs.length} en arrêt</div></div>`;
+    let html=`<div style="background:var(--c-primary-dark);border-radius:14px;padding:20px 24px;margin-bottom:18px;color:#fff"><div style="font-size:13px;opacity:.7;text-transform:capitalize">${jourStr} · ${heureStr}</div><div style="font-size:22px;font-weight:700;margin-top:4px">Bonjour Laurent 👋</div><div style="font-size:13px;opacity:.8;margin-top:4px">${agentsPresentTotal}/${DATA.team.length} agents présents · ${urgentTickets.length} ticket${urgentTickets.length>1?'s':''} prioritaire${urgentTickets.length>1?'s':''} · ${arretsActifs.length} en arrêt · ${absAujourdhui().length} en congé</div></div>`;
 
     if(remindersToday.length>0){
       html+=section("⏰","Rappels du jour",remindersToday.length,"#DC2626",remindersToday.map(r=>{const overdue=new Date(r.datetime)<now;return `<div class="panel-row"><div class="row-left"><div class="dot" style="background:${overdue?'#DC2626':'#F59E0B'}"></div><div><div class="row-name">${r.title}</div><div class="row-sub">${fmtDate(r.datetime)}${r.club!=="Tous"?' · '+r.club:''}</div></div></div><button class="btn-success" onclick="toggleReminderDone(${r.id})">✓ Fait</button></div>`}).join(""));
@@ -661,6 +674,8 @@ function renderContent(){
       html+=section("🏥","Agents en arrêt",arretsActifs.length,"#8B5CF6",arretsActifs.map(a=>`<div class="panel-row"><div class="row-left"><div><div class="row-name">${getAgentName(a.agentId)} ${a.type==="maladie"?'🏥':'⚠'}</div><div class="row-sub">${getAgentClub(a.agentId)}${a.dateFin?' · jusqu\'au '+fmtDateShort(a.dateFin):''}</div></div></div></div>`).join(""));
     }
 
+    html+=renderAbsencesToday(section);
+
     if(visitsToday.length>0||calToday.length>0){
       const items=[...visitsToday.map(v=>`<div class="panel-row"><div class="row-left"><div class="dot" style="background:#FE7F00"></div><div><div class="row-name">Visite · ${v.club}</div><div class="row-sub">${v.type}${v.heureArrivee?' · '+v.heureArrivee:''}</div></div></div></div>`),...calToday.map(e=>`<div class="panel-row"><div class="row-left"><div class="dot" style="background:#3B82F6"></div><div><div class="row-name">${e.title||e.type||'Événement'}</div><div class="row-sub">${e.club||''}</div></div></div></div>`)].join("");
       html+=section("📆","Programme du jour",visitsToday.length+calToday.length,"#3B82F6",items);
@@ -674,7 +689,7 @@ function renderContent(){
       html+=section("⭐","Avis Google à vérifier",avisARafraichir.length,"#F59E0B",`<div style="padding:12px 20px;font-size:13px;color:#6B7280">${avisARafraichir.map(c=>c.name).join(", ")}</div>`);
     }
 
-    if(remindersToday.length===0&&urgentTickets.length===0&&arretsActifs.length===0&&visitsToday.length===0&&calToday.length===0&&oldTk.length===0){
+    if(remindersToday.length===0&&urgentTickets.length===0&&arretsActifs.length===0&&visitsToday.length===0&&calToday.length===0&&oldTk.length===0&&absAujourdhui().length===0){
       html+=`<div class="panel" style="padding:40px;text-align:center;color:#16A34A"><div style="font-size:36px;margin-bottom:10px">✓</div><div style="font-weight:600">Rien d'urgent aujourd'hui</div></div>`;
     }
 
@@ -774,6 +789,10 @@ function renderContent(){
           <tbody>${termines.sort((a,b)=>new Date(b.dateFin||b.dateDebut)-new Date(a.dateFin||a.dateDebut)).map(a=>{const n=daysBetween(a.dateDebut,a.dateFin);return `<tr><td><strong>${getAgentName(a.agentId)}</strong></td><td>${getAgentClub(a.agentId)}</td><td><span class="badge-sm" style="background:${a.type==='maladie'?'#E9D5FF':'#FCE7F3'};color:${a.type==='maladie'?'#6B21A8':'#9D174D'}">${a.type==='maladie'?'🏥 Maladie':'⚠ AT'}</span></td><td>${fmtDateShort(a.dateDebut)}</td><td>${fmtDateShort(a.dateFin)}</td><td><strong>${n}j</strong></td><td style="color:#6B7280">${a.note||'—'}</td><td><button class="btn-danger" onclick="deleteArret(${a.id})">✕</button></td></tr>`}).join("")}</tbody>
         </table></div>
       </div>`:''}`;
+  }
+
+  else if(activeTab==="absences"){
+    area.innerHTML=renderAbsencesTab();
   }
 
   else if(activeTab==="visits"){
