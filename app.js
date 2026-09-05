@@ -80,14 +80,19 @@ async function loadDataAsync(){
 }
 
 let _saveTimer;
+let _lastPayload="";
 function saveData(){
-  try{localStorage.setItem(STORAGE_KEY,JSON.stringify(DATA))}catch(e){}
-  if(_isRemoteWrite){_isRemoteWrite=false;return} // ne pas ré-écrire ce qu'on vient de recevoir
+  const payload=JSON.stringify(DATA);
+  try{localStorage.setItem(STORAGE_KEY,payload)}catch(e){}
+  if(_isRemoteWrite){_isRemoteWrite=false;_lastPayload=payload;return} // ne pas ré-écrire ce qu'on vient de recevoir
+  if(payload===_lastPayload){updateSaveIndicator("saved");return} // rien n'a changé : pas d'écriture cloud inutile
+  if(payload.length>900000)showToast("⚠ Données volumineuses ("+Math.round(payload.length/1024)+" Ko) — pense à purger les imports / historiques");
   updateSaveIndicator("saving");
   clearTimeout(_saveTimer);
   _saveTimer=setTimeout(async()=>{
     try{
-      await FS_DOC_REF.set({payload:JSON.stringify(DATA),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+      const p=JSON.stringify(DATA);_lastPayload=p;
+      await FS_DOC_REF.set({payload:p,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
       updateSaveIndicator("saved");
     }catch(e){console.log("Firestore save error:",e);updateSaveIndicator("error")}
   },500);
@@ -103,8 +108,10 @@ function startLiveSync(){
     const remote=snap.data();
     if(!remote||!remote.payload)return;
     try{
+      if(remote.payload===_lastPayload)return; // c'est notre propre écriture
       const parsed=JSON.parse(remote.payload);
-      if(JSON.stringify(parsed)===JSON.stringify(DATA))return; // rien de nouveau
+      if(remote.payload===JSON.stringify(DATA))return; // rien de nouveau
+      _lastPayload=remote.payload;
       _isRemoteWrite=true;
       DATA=parsed;
       hydrateData();
@@ -254,6 +261,14 @@ function hydrateData(){
   if(!DATA.lastGoogleAutoRefresh)DATA.lastGoogleAutoRefresh="";
   if(!DATA.ticketExports)DATA.ticketExports=[];
   if(!DATA.salles)DATA.salles=[...DEFAULT_SALLES];
+  // Anti-obésité : on garde l'essentiel des historiques pour que la synchro reste rapide (document Firestore limité à 1 Mo)
+  if(DATA.agentPlanning.length>300)DATA.agentPlanning=DATA.agentPlanning.slice(-300);
+  if(DATA.importedFiles.length>5)DATA.importedFiles=DATA.importedFiles.slice(-5);
+  DATA.importedFiles.forEach(f=>{(f.sheets||[]).forEach(sh=>{if(sh.rows&&sh.rows.length>200)sh.rows=sh.rows.slice(0,200)})});
+  if(DATA.importHistory.length>50)DATA.importHistory=DATA.importHistory.slice(-50);
+  if(DATA.changelog.length>150)DATA.changelog=DATA.changelog.slice(0,150);
+  if(DATA.notifications.length>100)DATA.notifications=DATA.notifications.slice(0,100);
+  if((DATA.avisGoogle||[]).length>300)DATA.avisGoogle=DATA.avisGoogle.slice(-300);
   DATA.team.forEach(t=>{if(!t.color)t.color="blue";if(!t.salle)t.salle="Non affecté";if(t.rank===undefined)t.rank=99;if(!t.note)t.note=""});
   DATA.tickets.forEach(t=>{if(!t.ref)t.ref="";if(!t.salle)t.salle="Non affecté"});
 }
@@ -1294,8 +1309,8 @@ function renderContent(){
     '</tbody></table></div></div>'+
     '<div style="background:#F0FDFA;border:1px dashed #99F6E4;color:#0F766E;padding:12px 16px;border-radius:8px;font-size:12px;margin-top:12px">💡 <strong>Astuce :</strong> Visite tes clubs aux heures de pointe pour voir le flux réel. Pointe tes visites pour le suivi hebdo. Le bouton Waze lance la navigation GPS directement.</div>';
 
-    // Init Leaflet map
-    setTimeout(function(){
+    // Init Leaflet map (bibliothèque chargée uniquement quand on ouvre cet onglet)
+    loadLeaflet(function(){
       var mapEl=document.getElementById("clusterMap");
       if(!mapEl||mapEl._leaflet_id)return;
       var map=L.map("clusterMap").setView([48.916,2.82],11);
@@ -1312,7 +1327,7 @@ function renderContent(){
       var routeCoords=OPTIMAL_ROUTE.map(function(name){var c=DATA.clubs.find(function(x){return x.name===name});return c?[c.lat,c.lng]:null}).filter(Boolean);
       if(routeCoords.length>1)L.polyline(routeCoords,{color:"#0D9488",weight:3,dashArray:"8,8",opacity:0.7}).addTo(map);
       if(coords.length>0)map.fitBounds(coords,{padding:[30,30]});
-    },200);
+    });
   }
 
     // ═══ CONTACTS & PRESTATAIRES ═══
@@ -3041,6 +3056,16 @@ window.openGoogleMapsRoute=function(){
 // ═══ WORKDAY FUNCTIONS — IMPORT AGENTS EXCEL ═══
 // Charge la bibliothèque de lecture Excel (SheetJS) une seule fois, à la demande
 let _xlsxLoaded=false;
+function loadLeaflet(cb){
+  if(window.L&&window.L.map){setTimeout(cb,50);return}
+  if(!document.getElementById("leafletCss")){var l=document.createElement("link");l.id="leafletCss";l.rel="stylesheet";l.href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css";document.head.appendChild(l)}
+  if(window._leafletLoading){window._leafletCbs.push(cb);return}
+  window._leafletLoading=true;window._leafletCbs=[cb];
+  var sc=document.createElement("script");sc.src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js";
+  sc.onload=function(){window._leafletLoading=false;window._leafletCbs.forEach(function(f){try{f()}catch(e){console.error(e)}});window._leafletCbs=[]};
+  sc.onerror=function(){window._leafletLoading=false;showToast("⚠ Carte indisponible (vérifie ta connexion)")};
+  document.head.appendChild(sc);
+}
 function loadXLSX(){
   return new Promise(function(resolve){
     if(_xlsxLoaded&&window.XLSX){resolve(true);return}
@@ -3518,8 +3543,8 @@ else{
   setInterval(checkReminders,30000);
   checkReminders();
   // Auto-fetch Google reviews on page load
-  if(DATA.googleApiKey){
-    setTimeout(function(){fetchAllGoogleReviews()},1500);
+  if(DATA.googleApiKey&&DATA.clubs.some(c=>needsAvisRefresh(c.name))){
+    setTimeout(function(){fetchAllGoogleReviews()},3000);
   }
   // Enregistre le Service Worker pour l'installation en app (PWA)
   if("serviceWorker" in navigator){
