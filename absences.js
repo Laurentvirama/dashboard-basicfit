@@ -76,13 +76,14 @@ function absMatchAgent(name){
 function absDetectType(txt){
   const s=absNorm(txt).join(" ");
   if(/malad|sick|arret de travail|arret maladie|illness/.test(s))return "maladie";
+  if(/fermeture|ferie|public holiday|bank holiday/.test(s))return "autre";
   if(/accident|\bat\b|work injury/.test(s))return "AT";
   if(/rtt|recup|repos comp|compensat/.test(s))return "rtt";
   if(/sans solde|unpaid|non pay/.test(s))return "css";
   if(/format|training/.test(s))return "formation";
   if(/matern|patern|parental|adoption/.test(s))return "parental";
   if(/famil|mariage|pacs|naissance|deces|enfant malade/.test(s))return "famille";
-  if(/cong|\bcp\b|paid|vacation|holiday|annual|leave|vacances/.test(s))return "cp";
+  if(/cong|\bcp\b|paid|vacation|holiday|annual|leave|vacances|pto/.test(s))return "cp";
   return "autre";
 }
 
@@ -90,8 +91,9 @@ function absDetectType(txt){
 function absParseDate(v){
   if(v===null||v===undefined||v==="")return "";
   if(v instanceof Date&&!isNaN(v))return absISO(v);
-  if(typeof v==="number"){const d=new Date(Math.round((v-25569)*86400000));return isNaN(d)?"":new Date(d.getTime()+d.getTimezoneOffset()*60000).toISOString().split("T")[0]}
+  if(typeof v==="number"){if(v<30000||v>80000)return "";const d=new Date(Math.round((v-25569)*86400000));return isNaN(d)?"":new Date(d.getTime()+d.getTimezoneOffset()*60000).toISOString().split("T")[0]}
   let s=String(v).trim();
+  if(/^\d+([.,]\d+)?$/.test(s)){const n=parseFloat(s.replace(",","."));return (n>=30000&&n<=80000&&s.length===5)?absParseDate(n):""} // matricule, unités… ne sont pas des dates
   let m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);if(m)return `${m[1]}-${m[2]}-${m[3]}`;
   m=s.match(/^(\d{1,2})[\/\.\-](\d{1,2})[\/\.\-](\d{2,4})/);
   if(m){let y=m[3].length===2?"20"+m[3]:m[3];return `${y}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`}
@@ -399,7 +401,7 @@ window.processAbsencesImport=async function(file){
   const scoreRow=r=>r.filter(c=>String(c).trim()).length+(r.some(c=>/nom|name|worker|employ|collab|salari|agent/i.test(c))?3:0)+(r.some(c=>/d[ée]but|start|from|date/i.test(c))?3:0);
   let best=null;
   wb.SheetNames.forEach(name=>{
-    const aoa=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:"",raw:false});
+    const aoa=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:"",raw:true}).map(r=>r.map(c=>c instanceof Date?absISO(c):c));
     let hi=0,hs=-1;
     aoa.slice(0,25).forEach((r,i)=>{const sc=scoreRow(r);if(sc>hs){hs=sc;hi=i}});
     const body=aoa.slice(hi+1).filter(r=>r.some(c=>String(c).trim()));
@@ -411,18 +413,23 @@ window.processAbsencesImport=async function(file){
   const headers=best.aoa[best.hi].map(h=>String(h).trim());
   const body=best.body;
   const find=re=>{const i=headers.findIndex(h=>re.test(h));return i>=0?i:-1};
+  const dateCol=find(/^date de l'absence|^date$|absence date|date d'absence/i); // export "une ligne par jour"
   const map={
     nom:find(/^(nom|name|worker|employ|collaborateur|salari|agent|travailleur|employee)/i),
-    type:find(/type|motif|absence|nature|raison|reason|leave type|time off type/i),
-    debut:find(/d[ée]but|start|from|première|first day|date de d/i),
-    fin:find(/fin|end|to$|jusqu|last day|dernier/i),
+    type:find(/^type d'absence|leave type|time off type|^type|motif|nature|raison|reason/i),
+    table:find(/table d'absence|absence table|absence plan|^plan|rubrique/i),
+    debut:dateCol>=0?dateCol:find(/d[ée]but|start|from|première|first day|date de d/i),
+    fin:dateCol>=0?dateCol:find(/date de fin|^fin|end date|^end|to$|jusqu|last day|dernier/i),
     statut:find(/statut|status|état|etat|approbation|approval/i),
     club:find(/club|site|organisation|organization|lieu|supervisory|location|établissement/i),
-    jours:find(/jours|days|quantit|dur[ée]e|unités|units/i),
+    matricule:find(/matricule|employee id|worker id|^id$/i),
+    unites:find(/unit[ée]s|units|quantit|dur[ée]e|^jours$|^days$/i),
   };
   if(map.nom<0)map.nom=0;
-  if(map.debut<0){map.debut=headers.findIndex((h,i)=>i!==map.nom&&body.some(r=>absParseDate(r[i])))}
-  if(map.fin<0){map.fin=headers.findIndex((h,i)=>i!==map.nom&&i!==map.debut&&body.some(r=>absParseDate(r[i])))}
+  const notDate=i=>i===map.nom||i===map.matricule||i===map.unites||/matricule|id\b|unit|semaine|weekday|jour de/i.test(headers[i]);
+  if(map.debut<0){map.debut=headers.findIndex((h,i)=>!notDate(i)&&body.some(r=>absParseDate(r[i])))}
+  if(map.fin<0){map.fin=headers.findIndex((h,i)=>!notDate(i)&&i!==map.debut&&body.some(r=>absParseDate(r[i])))}
+  if(map.fin<0)map.fin=map.debut; // pas de date de fin = absence d'une journée (fusionnées ensuite en périodes)
   _absImportRows={headers,body,map,file:file.name+(wb.SheetNames.length>1?" · feuille « "+best.name+" »":"")};
   absShowMappingForm();
 };
@@ -431,12 +438,14 @@ window.absShowMappingForm=function(){
   const champ=(id,label,req)=>`<div class="form-group" style="flex:1;min-width:180px"><label class="form-label">${label}${req?' *':''}</label><select class="form-select" id="fMap_${id}">${opt(R.map[id])}</select></div>`;
   showModal(`<div class="form-title">📥 Import Workday — ${R.file}</div>
     <div style="font-size:12px;color:#6B7280;margin-bottom:12px">${R.body.length} lignes trouvées. Vérifie que les colonnes sont bien reconnues :</div>
-    <div style="display:flex;flex-wrap:wrap;gap:10px">${champ("nom","Nom de l'agent",1)}${champ("debut","Date de début",1)}${champ("fin","Date de fin")}${champ("type","Type d'absence")}${champ("statut","Statut")}${champ("club","Club / site")}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px">${champ("nom","Nom de l'agent",1)}${champ("debut","Date (ou date de début)",1)}${champ("fin","Date de fin (si distincte)")}${champ("type","Type d'absence")}${champ("table","Table / plan d'absence")}${champ("matricule","Matricule")}${champ("statut","Statut")}${champ("club","Club / site")}</div>
+    <div style="font-size:11px;color:#9CA3AF;margin-top:-4px;margin-bottom:8px">Export Workday « une ligne par jour » : mets la même colonne en date de début et de fin, les jours consécutifs seront fusionnés en périodes.</div>
     <div class="form-group"><label style="font-size:13px;display:flex;gap:8px;align-items:center"><input type="checkbox" id="fMapSkipRef" checked> Ignorer les demandes refusées / annulées</label></div>
     <div class="form-actions"><button class="form-cancel" onclick="closeModal()">Annuler</button><button class="form-submit" onclick="absApplyMapping()">Analyser</button></div>`);
 };
 window.absApplyMapping=function(){
-  const R=_absImportRows;["nom","debut","fin","type","statut","club"].forEach(k=>R.map[k]=parseInt(document.getElementById("fMap_"+k).value));
+  const R=_absImportRows;["nom","debut","fin","type","table","matricule","statut","club"].forEach(k=>R.map[k]=parseInt(document.getElementById("fMap_"+k).value));
+  if(R.map.fin<0)R.map.fin=R.map.debut;
   const skipRef=document.getElementById("fMapSkipRef").checked;
   const rows=[];
   R.body.forEach(r=>{
@@ -448,10 +457,13 @@ window.absApplyMapping=function(){
     if(/refus|annul|cancel|denied|rejet/.test(st))statut="refusé";
     else if(/attente|pending|soumis|submitted|en cours|awaiting|in progress/.test(st))statut="attente";
     if(statut==="refusé"&&skipRef)return;
-    const ag=absMatchAgent(name);
+    const mat=R.map.matricule>=0?String(r[R.map.matricule]||"").trim():"";
+    const ag=(mat&&DATA.team.find(t=>String(t.matricule||"").trim()===mat))||absMatchAgent(name);
+    const typeTxt=[R.map.type>=0?r[R.map.type]:"",R.map.table>=0?r[R.map.table]:""].map(x=>String(x||"").trim()).filter(Boolean).join(" ");
+    const un=R.map.unites>=0?parseFloat(String(r[R.map.unites]||"").replace(",",".")):NaN;
     const clubRaw=R.map.club>=0?String(r[R.map.club]||""):"";
     const clubMatch=DATA.clubs.find(c=>clubRaw&&(absNorm(clubRaw).join(" ").includes(absNorm(c.name).join(" "))||clubRaw.includes(c.code)));
-    rows.push({raw:name,agentName:ag?ag.name:name,agentId:ag?ag.id:null,club:ag?ag.club:(clubMatch?clubMatch.name:clubRaw),type:absDetectType(R.map.type>=0?r[R.map.type]:""),dateDebut:d1<=d2?d1:d2,dateFin:d2>=d1?d2:d1,statut,source:"Workday "+absToday(),note:R.map.type>=0?String(r[R.map.type]||"").trim():""});
+    rows.push({raw:name,agentName:ag?ag.name:name,agentId:ag?ag.id:null,club:ag?ag.club:(clubMatch?clubMatch.name:clubRaw),type:absDetectType(typeTxt),dateDebut:d1<=d2?d1:d2,dateFin:d2>=d1?d2:d1,statut,source:"Workday "+absToday(),note:(typeTxt&&absDetectType(typeTxt)==="autre"?typeTxt:"")+(un>0&&un<1?" (½ journée)":"")});
   });
   absShowImportPreview(rows,"Import Workday");
 };
@@ -463,9 +475,12 @@ function absMergeRows(rows){
   const out=[];
   ok.forEach(r=>{
     const last=out[out.length-1];
-    if(last&&absNorm(last.agentName).join("")===absNorm(r.agentName).join("")&&last.type===r.type&&r.dateDebut<=absAddDays(last.dateFin,1)){
+    let suivant=absAddDays(last?last.dateFin:r.dateDebut,1);
+    if(last){const dow=new Date(suivant+"T12:00:00").getDay();if(dow===6)suivant=absAddDays(suivant,2);else if(dow===0)suivant=absAddDays(suivant,1)}
+    if(last&&absNorm(last.agentName).join("")===absNorm(r.agentName).join("")&&last.type===r.type&&r.dateDebut<=suivant){
       if(r.dateFin>last.dateFin)last.dateFin=r.dateFin;
       last.merged=(last.merged||1)+1;
+      if(r.note&&!(last.note||"").includes(r.note))last.note=((last.note||"")+" "+r.note).trim();
       if(r.statut==="attente")last.statut="attente";
     } else out.push(Object.assign({},r));
   });
@@ -496,8 +511,8 @@ window.absCommitImport=function(titre){
   const rows=(_absImportRows||[]).filter(r=>!r.error&&r.keep);
   let n=0,nArr=0;
   rows.forEach(r=>{
+    if((r.type==="maladie"||r.type==="AT")&&!r.agentId){r.note=((r.type==="maladie"?"Arrêt maladie":"Accident du travail")+" — agent hors équipe du dashboard "+(r.note||"")).trim();r.type="autre"}
     if(r.type==="maladie"||r.type==="AT"){
-      if(!r.agentId)return; // les arrêts exigent un agent connu
       if(!DATA.arrets)DATA.arrets=[];
       if(DATA.arrets.some(a=>a.agentId==r.agentId&&a.dateDebut===r.dateDebut))return;
       DATA.arrets.push({id:nextId(DATA.arrets),type:r.type,agentId:r.agentId,dateDebut:r.dateDebut,dateFin:r.dateFin,note:"Import "+titre,dateCreated:new Date().toISOString()});nArr++;
