@@ -392,7 +392,7 @@ function renderTabs(){
   c.innerHTML=TABS.map(t=>{
     let badge='';
     if(t.id==="arrets"&&activesCount>0)badge=`<span class="tab-badge">${activesCount}</span>`;
-    let absNow=0;try{absNow=absAujourdhui().length}catch(e){}
+    let absNow=0;try{absNow=absAgentsAujourdhui()}catch(e){}
     if(t.id==="absences"&&absNow>0)badge=`<span class="tab-badge" style="background:#F59E0B">${absNow}</span>`;
     if(t.id==="reminders"&&pendingReminders>0)badge=`<span class="tab-badge" style="${urgentReminders>0?'background:#DC2626':''}">${pendingReminders}</span>`;
     const overdueFollowups=getOverdueFollowups().length;
@@ -658,7 +658,7 @@ function renderContent(){
 
     const section=(icon,title,count,color,html)=>`<div class="panel" style="border-left:4px solid ${color};margin-bottom:14px"><div class="panel-header"><span class="panel-title">${icon} ${title}</span>${count!==null?`<span class="badge" style="background:${color}22;color:${color}">${count}</span>`:''}</div>${html}</div>`;
 
-    let html=`<div style="background:var(--c-primary-dark);border-radius:14px;padding:20px 24px;margin-bottom:18px;color:#fff"><div style="font-size:13px;opacity:.7;text-transform:capitalize">${jourStr} · ${heureStr}</div><div style="font-size:22px;font-weight:700;margin-top:4px">Bonjour Laurent 👋</div><div style="font-size:13px;opacity:.8;margin-top:4px">${agentsPresentTotal}/${DATA.team.length} agents présents · ${urgentTickets.length} ticket${urgentTickets.length>1?'s':''} prioritaire${urgentTickets.length>1?'s':''} · ${arretsActifs.length} en arrêt · ${absAujourdhui().length} en congé</div></div>`;
+    let html=`<div style="background:var(--c-primary-dark);border-radius:14px;padding:20px 24px;margin-bottom:18px;color:#fff"><div style="font-size:13px;opacity:.7;text-transform:capitalize">${jourStr} · ${heureStr}</div><div style="font-size:22px;font-weight:700;margin-top:4px">Bonjour Laurent 👋</div><div style="font-size:13px;opacity:.8;margin-top:4px">${agentsPresentTotal}/${DATA.team.length} agents présents · ${urgentTickets.length} ticket${urgentTickets.length>1?'s':''} prioritaire${urgentTickets.length>1?'s':''} · ${arretsActifs.length} en arrêt · ${absAgentsAujourdhui()} en congé</div></div>`;
 
     if(remindersToday.length>0){
       html+=section("⏰","Rappels du jour",remindersToday.length,"#DC2626",remindersToday.map(r=>{const overdue=new Date(r.datetime)<now;return `<div class="panel-row"><div class="row-left"><div class="dot" style="background:${overdue?'#DC2626':'#F59E0B'}"></div><div><div class="row-name">${r.title}</div><div class="row-sub">${fmtDate(r.datetime)}${r.club!=="Tous"?' · '+r.club:''}</div></div></div><button class="btn-success" onclick="toggleReminderDone(${r.id})">✓ Fait</button></div>`}).join(""));
@@ -3491,8 +3491,13 @@ function render(){
   }
 }
 
-// Boot: load sync first, then try async persistent storage
-render();
+// Boot : si des données locales existent on affiche tout de suite, sinon on attend Firestore (évite l'écran vide à la 1re connexion)
+const _hasLocal=!!loadDataSync();
+if(_hasLocal){render()}
+else{
+  try{renderTabs()}catch(e){}
+  document.getElementById("contentArea").innerHTML='<div class="panel" style="padding:40px;text-align:center;color:#6B7280"><div style="font-size:28px;margin-bottom:10px">⏳</div><div style="font-weight:600">Chargement de tes données…</div><div style="font-size:12px;color:#9CA3AF;margin-top:6px">Synchronisation avec le cloud, quelques secondes.</div></div>';
+}
 
 (async()=>{
   try{
@@ -3500,10 +3505,13 @@ render();
     if(asyncData){
       DATA=asyncData;
       hydrateData();
-      render();
+      try{localStorage.setItem(STORAGE_KEY,JSON.stringify(DATA))}catch(e){}
       updateSaveIndicator("saved");
     }
   }catch(e){console.log("Chargement Firestore ignoré:",e)}
+  try{render()}catch(e){console.error("render après chargement:",e)}
+  // Deuxième passe de sécurité : si l'écran est resté vide, on redessine
+  setTimeout(function(){const a=document.getElementById("contentArea");if(a&&(!a.innerHTML.trim()||a.innerHTML.indexOf("Chargement de tes données")>=0)){try{render()}catch(e){console.error("render (2e passe):",e)}}},2500);
   // Démarre l'écoute en temps réel (synchro PC ↔ iPhone automatique)
   startLiveSync();
   // Check reminders every 30s

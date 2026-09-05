@@ -19,6 +19,7 @@ const ABS_TYPES=[
 const ABS_JOURS=["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
 let absWeekOffset=0;
 let _absShowHistory=false;
+let _absShowAll=false;
 let _absImportRows=null;   // lignes en attente de validation (import / saisie rapide)
 
 // ─── Helpers de base ───────────────────────────────────────────────────
@@ -45,6 +46,7 @@ function absAgentName(a){if(a.agentId){const t=getAgent(a.agentId);if(t)return t
 function absAgentClub(a){if(a.agentId){const t=getAgent(a.agentId);if(t)return t.club}return a.club||"—"}
 function absActiveOn(a,iso){return a.statut!=="refusé"&&a.dateDebut<=iso&&(a.dateFin||a.dateDebut)>=iso}
 function absAujourdhui(){const t=absToday();return absList().filter(a=>absActiveOn(a,t)&&a.statut==="approuvé")}
+function absAgentsAujourdhui(){const s=new Set();absAujourdhui().forEach(a=>s.add(absNorm(absAgentName(a)).join("")));return s.size}
 function absActiveForAgent(agentId){const t=absToday();return absList().find(a=>a.agentId==agentId&&absActiveOn(a,t)&&a.statut==="approuvé")}
 function absFiltre(list){return selectedClub==="all"?list:list.filter(a=>absAgentClub(a)===selectedClub)}
 function absKey(name,d1,d2){return absNorm(name).sort().join("")+"|"+d1+"|"+(d2||d1)}
@@ -217,7 +219,10 @@ function renderAbsencesTab(){
   const auj=all.filter(a=>absActiveOn(a,t)&&a.statut==="approuvé");
   const lundi=absMonday(t),dim=absAddDays(lundi,6);
   const semaine=all.filter(a=>a.statut!=="refusé"&&a.dateDebut<=dim&&(a.dateFin||a.dateDebut)>=lundi);
-  const avenir=all.filter(a=>a.statut!=="refusé"&&(a.dateFin||a.dateDebut)>=t).sort((a,b)=>a.dateDebut.localeCompare(b.dateDebut));
+  const avenirAll=all.filter(a=>a.statut!=="refusé"&&(a.dateFin||a.dateDebut)>=t).sort((a,b)=>a.dateDebut.localeCompare(b.dateDebut));
+  const j56=absAddDays(t,56);
+  const avenir=_absShowAll?avenirAll:avenirAll.filter(a=>a.dateDebut<=j56);
+  const plusTard=avenirAll.length-avenir.length;
   const passe=all.filter(a=>(a.dateFin||a.dateDebut)<t).sort((a,b)=>b.dateDebut.localeCompare(a.dateDebut));
   const attente=all.filter(a=>a.statut==="attente"&&(a.dateFin||a.dateDebut)>=t);
   const conflits=absConflits(14).filter(c=>selectedClub==="all"||c.club===selectedClub);
@@ -233,6 +238,7 @@ function renderAbsencesTab(){
       <button class="btn-secondary" onclick="copyAbsencesRecap()">📋 Récap semaine</button>
       <button class="btn-secondary" onclick="exportAbsencesICS()">📅 Agenda (.ics)</button>
       <button class="btn-secondary" onclick="exportAbsencesExcel()">📊 Excel</button>
+      <button class="btn-secondary" onclick="absCleanupForm()" title="Doublons, fusion, purge des imports">🧹</button>
       <button class="btn-secondary" onclick="absSettingsForm()" title="Seuil d'alerte, délai de prévenance">⚙</button>
     </div></div>`;
 
@@ -251,7 +257,7 @@ function renderAbsencesTab(){
 
   html+=renderAbsencesWeekGrid();
 
-  html+=`<div class="panel"><div class="panel-header"><span class="panel-title">📋 À venir et en cours</span><span class="badge" style="background:#FEF3C7;color:#92400E">${avenir.length}</span></div>
+  html+=`<div class="panel"><div class="panel-header"><span class="panel-title">📋 En cours et à venir <span style="font-size:12px;color:#9CA3AF;font-weight:400">${_absShowAll?'toutes':'8 prochaines semaines'}</span></span><div style="display:flex;gap:8px;align-items:center"><span class="badge" style="background:#FEF3C7;color:#92400E">${avenir.length}</span>${plusTard>0||_absShowAll?`<button class="btn-secondary" onclick="_absShowAll=!_absShowAll;render()">${_absShowAll?'Réduire':'+ '+plusTard+' plus tard'}</button>`:''}</div></div>
     ${avenir.length===0?`<div class="empty-state" style="padding:30px"><div class="empty-state-icon">🌴</div><div>Aucune absence enregistrée<br><span style="font-size:12px;color:#9CA3AF">Importe l'export Workday, ou ajoute un congé à la main</span></div></div>`:
     `<div style="overflow-x:auto"><table class="data-table"><thead><tr><th>Agent</th><th>Club</th><th>Type</th><th>Du</th><th>Au</th><th>Jours</th><th>Statut</th><th>Source</th><th></th></tr></thead><tbody>
     ${avenir.map(a=>{const enCours=absActiveOn(a,t);const dj=absDays(t,a.dateDebut)-1;return `<tr style="${enCours?'background:#FFFBEB':''}"><td><strong>${absAgentName(a)}</strong>${a.agentId?'':' <span title="Nom non rattaché à un agent" style="color:#F59E0B">*</span>'}${a.note?`<div style="font-size:11px;color:#9CA3AF">${a.note}</div>`:''}</td><td>${absAgentClub(a)}</td><td>${absChip(a)}</td><td>${fmtDateShort(a.dateDebut)}</td><td>${fmtDateShort(a.dateFin||a.dateDebut)}</td><td><strong>${absDays(a.dateDebut,a.dateFin||a.dateDebut)}j</strong></td><td>${enCours?'<span class="badge-sm" style="background:#FEF3C7;color:#92400E">En cours</span>':dj<=s.alertJours?`<span class="badge-sm" style="background:#DBEAFE;color:#1E40AF">J-${dj}</span>`:a.statut==="attente"?'<span class="badge-sm" style="background:#F3F4F6;color:#6B7280">À valider</span>':'<span class="badge-sm" style="background:#D1FAE5;color:#065F46">Validé</span>'}</td><td style="font-size:11px;color:#9CA3AF">${a.source||'manuel'}</td><td>${absRowActions(a)}</td></tr>`}).join("")}
@@ -284,8 +290,10 @@ function renderAbsencesModule(dragAttrs){
 function renderAbsencesToday(section){
   const t=absToday();const s=absSettings();
   let html="";
-  const auj=absAujourdhui();
-  if(auj.length)html+=section("🌴","En congé aujourd'hui",auj.length,"#F59E0B",auj.map(a=>`<div class="panel-row"><div class="row-left"><div class="dot" style="background:${absTypeInfo(a.type).color}"></div><div><div class="row-name">${absAgentName(a)}</div><div class="row-sub">${absAgentClub(a)} · ${absTypeInfo(a.type).label} · retour le ${fmtDateShort(absAddDays(a.dateFin||a.dateDebut,1))}</div></div></div></div>`).join(""));
+  const aujAll=absAujourdhui();
+  const parAgent={};aujAll.forEach(a=>{const k=absNorm(absAgentName(a)).join("");if(!parAgent[k]||(a.dateFin||a.dateDebut)>(parAgent[k].dateFin||parAgent[k].dateDebut))parAgent[k]=a});
+  const auj=Object.values(parAgent).sort((a,b)=>absAgentClub(a).localeCompare(absAgentClub(b))||absAgentName(a).localeCompare(absAgentName(b)));
+  if(auj.length)html+=section("🌴","En congé aujourd'hui",auj.length,"#F59E0B",auj.slice(0,12).map(a=>`<div class="panel-row"><div class="row-left"><div class="dot" style="background:${absTypeInfo(a.type).color}"></div><div><div class="row-name">${absAgentName(a)}</div><div class="row-sub">${absAgentClub(a)} · ${absTypeInfo(a.type).label} · retour le ${fmtDateShort(absAddDays(a.dateFin||a.dateDebut,1))}</div></div></div></div>`).join("")+(auj.length>12?`<div style="padding:10px 20px"><button class="btn-secondary" onclick="activeTab='absences';render()">Voir les ${auj.length} agents</button></div>`:''));
   const departs=absList().filter(a=>a.statut==="approuvé"&&a.dateDebut>t&&absDays(t,a.dateDebut)-1<=s.alertJours).sort((a,b)=>a.dateDebut.localeCompare(b.dateDebut));
   if(departs.length)html+=section("📅","Départs en congé dans les "+s.alertJours+" jours",departs.length,"#3B82F6",departs.map(a=>`<div class="panel-row"><div class="row-left"><div class="dot" style="background:${absTypeInfo(a.type).color}"></div><div><div class="row-name">${absAgentName(a)} <span style="font-size:11px;color:#3B82F6;font-weight:700">J-${absDays(t,a.dateDebut)-1}</span></div><div class="row-sub">${absAgentClub(a)} · du ${fmtDateShort(a.dateDebut)} au ${fmtDateShort(a.dateFin||a.dateDebut)}</div></div></div></div>`).join(""));
   const conflits=absConflits(s.alertJours);
@@ -449,15 +457,38 @@ window.absApplyMapping=function(){
 };
 
 // Aperçu commun (import + saisie rapide) avant enregistrement
+// Fusionne des lignes "une par jour" (ou qui se chevauchent) en une seule absence par agent + type
+function absMergeRows(rows){
+  const ok=rows.filter(r=>!r.error).sort((a,b)=>(absNorm(a.agentName).join("")+a.type).localeCompare(absNorm(b.agentName).join("")+b.type)||a.dateDebut.localeCompare(b.dateDebut));
+  const out=[];
+  ok.forEach(r=>{
+    const last=out[out.length-1];
+    if(last&&absNorm(last.agentName).join("")===absNorm(r.agentName).join("")&&last.type===r.type&&r.dateDebut<=absAddDays(last.dateFin,1)){
+      if(r.dateFin>last.dateFin)last.dateFin=r.dateFin;
+      last.merged=(last.merged||1)+1;
+      if(r.statut==="attente")last.statut="attente";
+    } else out.push(Object.assign({},r));
+  });
+  return out.concat(rows.filter(r=>r.error));
+}
 window.absShowImportPreview=function(rows,titre){
+  const y=new Date().getFullYear();
+  rows.forEach(r=>{
+    if(r.error)return;
+    const y1=parseInt(r.dateDebut.slice(0,4)),y2=parseInt((r.dateFin||r.dateDebut).slice(0,4));
+    if(y1<y-1||y1>y+2||y2<y-1||y2>y+2){r.error="dates suspectes ("+r.dateDebut+" → "+r.dateFin+")";return}
+    if(absDays(r.dateDebut,r.dateFin)>120){r.error="durée anormale ("+absDays(r.dateDebut,r.dateFin)+" jours) : vérifie la colonne Date de fin"}
+  });
+  rows=absMergeRows(rows);
   _absImportRows=rows;
   const existing=new Set(absList().map(a=>a.key));
-  rows.forEach(r=>{if(!r.error){r.key=absKey(r.agentName,r.dateDebut,r.dateFin);r.dup=existing.has(r.key);r.keep=!r.dup}});
+  const seen=new Set();
+  rows.forEach(r=>{if(!r.error){r.key=absKey(r.agentName,r.dateDebut,r.dateFin);r.dup=existing.has(r.key)||seen.has(r.key);seen.add(r.key);r.keep=!r.dup}});
   const ok=rows.filter(r=>!r.error);const err=rows.filter(r=>r.error);
   showModal(`<div class="form-title">${titre} — aperçu</div>
-    <div style="font-size:12px;color:#6B7280;margin-bottom:10px">${ok.length} absence${ok.length>1?'s':''} reconnue${ok.length>1?'s':''}${err.length?', <span style="color:#DC2626">'+err.length+' ligne'+(err.length>1?'s':'')+' illisible'+(err.length>1?'s':'')+'</span>':''}. Les doublons déjà présents sont décochés. Les types maladie / AT iront dans l'onglet « Maladie & AT ».</div>
+    <div style="font-size:12px;color:#6B7280;margin-bottom:10px">${ok.length} absence${ok.length>1?'s':''} reconnue${ok.length>1?'s':''}${ok.some(r=>r.merged)?' (lignes par jour fusionnées en périodes)':''}${err.length?', <span style="color:#DC2626">'+err.length+' ligne'+(err.length>1?'s':'')+' illisible'+(err.length>1?'s':'')+'</span>':''}. Les doublons déjà présents sont décochés. Les types maladie / AT iront dans l'onglet « Maladie & AT ».</div>
     <div style="max-height:45vh;overflow:auto;border:1px solid #F0F0F3;border-radius:8px"><table class="data-table" style="font-size:12px"><thead><tr><th></th><th>Agent</th><th>Club</th><th>Type</th><th>Du</th><th>Au</th><th>Statut</th></tr></thead><tbody>
-    ${rows.map((r,i)=>r.error?`<tr style="background:#FEF2F2"><td></td><td colspan="6" style="color:#DC2626">${r.raw} — ${r.error}</td></tr>`:`<tr style="${r.dup?'opacity:.5':''}"><td><input type="checkbox" ${r.keep?'checked':''} onchange="_absImportRows[${i}].keep=this.checked"></td><td>${r.agentName}${r.agentId?' <span style="color:#16A34A">✓</span>':' <span style="color:#F59E0B" title="Non trouvé dans l\'équipe — sera enregistré en nom libre">*</span>'}${r.dup?' <span class="badge-sm" style="background:#F3F4F6;color:#6B7280">déjà présent</span>':''}</td><td>${r.club||'—'}</td><td>${r.type==="maladie"?'🏥 Maladie':r.type==="AT"?'⚠ AT':absTypeInfo(r.type).label}</td><td>${fmtDateShort(r.dateDebut)}</td><td>${fmtDateShort(r.dateFin)}</td><td>${r.statut}</td></tr>`).join("")}
+    ${rows.map((r,i)=>r.error?`<tr style="background:#FEF2F2"><td></td><td colspan="6" style="color:#DC2626">${r.raw} — ${r.error}</td></tr>`:`<tr style="${r.dup?'opacity:.5':''}"><td><input type="checkbox" ${r.keep?'checked':''} onchange="_absImportRows[${i}].keep=this.checked"></td><td>${r.agentName}${r.agentId?' <span style="color:#16A34A">✓</span>':' <span style="color:#F59E0B" title="Non trouvé dans l\'équipe — sera enregistré en nom libre">*</span>'}${r.dup?' <span class="badge-sm" style="background:#F3F4F6;color:#6B7280">déjà présent</span>':''}</td><td>${r.club||'—'}</td><td>${r.type==="maladie"?'🏥 Maladie':r.type==="AT"?'⚠ AT':absTypeInfo(r.type).label}</td><td>${fmtDateShort(r.dateDebut)}</td><td>${fmtDateShort(r.dateFin)}${r.merged?' <span style="color:#9CA3AF">('+r.merged+' j fusionnés)</span>':''}</td><td>${r.statut}</td></tr>`).join("")}
     </tbody></table></div>
     <div class="form-actions"><button class="form-cancel" onclick="closeModal()">Annuler</button><button class="form-submit" onclick="absCommitImport('${titre.replace(/'/g,"")}')">Enregistrer ${ok.filter(r=>r.keep).length} absence${ok.filter(r=>r.keep).length>1?'s':''}</button></div>`);
 };
@@ -546,3 +577,31 @@ window.addEventListener("error",function(ev){
     }
   }catch(e){}
 });
+
+// ─── Nettoyage : doublons, fusion, purge des imports ───────────────────
+window.absCleanupForm=function(){
+  const imp=absList().filter(a=>/^Workday/i.test(a.source||""));
+  showModal(`<div class="form-title">🧹 Nettoyer les absences</div>
+    <div style="font-size:13px;color:#374151;line-height:1.6;margin-bottom:14px">
+      <strong>Fusionner &amp; dédoublonner</strong> : supprime les lignes identiques et regroupe, pour un même agent et un même type, les jours consécutifs en une seule période. Aucune information perdue.<br>
+      <strong>Supprimer les imports Workday</strong> : efface les ${imp.length} absence${imp.length>1?'s':''} venant d'un import (les saisies manuelles sont conservées), pour repartir proprement avant un nouvel import.
+    </div>
+    <div class="form-actions" style="flex-wrap:wrap"><button class="form-cancel" onclick="closeModal()">Annuler</button><button class="btn-danger" style="padding:10px 16px" onclick="absPurgeImports()">Supprimer les imports Workday</button><button class="form-submit" onclick="absDedupe()">Fusionner &amp; dédoublonner</button></div>`);
+};
+window.absDedupe=function(){
+  const before=absList().length;
+  const rows=absList().map(a=>Object.assign({},a,{dateFin:a.dateFin||a.dateDebut}));
+  const merged=absMergeRows(rows);
+  const seen=new Set();const out=[];
+  merged.forEach(r=>{const k=absKey(r.agentName,r.dateDebut,r.dateFin)+"|"+r.type;if(seen.has(k))return;seen.add(k);r.key=absKey(r.agentName,r.dateDebut,r.dateFin);delete r.merged;out.push(r)});
+  DATA.absences=out;
+  logChange("Nettoyage absences : "+before+" → "+out.length);
+  saveData();closeModal();render();showToast("✓ "+before+" lignes → "+out.length+" absences");
+};
+window.absPurgeImports=function(){
+  const n=absList().filter(a=>/^Workday/i.test(a.source||"")).length;
+  if(!confirm("Supprimer les "+n+" absences importées depuis Workday ? Les saisies manuelles sont conservées."))return;
+  DATA.absences=DATA.absences.filter(a=>!/^Workday/i.test(a.source||""));
+  logChange("Purge des imports Workday : "+n+" absences supprimées");
+  saveData();closeModal();render();showToast("✓ "+n+" absences supprimées");
+};
