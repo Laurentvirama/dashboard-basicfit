@@ -23,8 +23,8 @@ let _absImportRows=null;   // lignes en attente de validation (import / saisie r
 
 // ─── Helpers de base ───────────────────────────────────────────────────
 function absTypeInfo(id){return ABS_TYPES.find(t=>t.id===id)||ABS_TYPES[ABS_TYPES.length-1]}
-function absToday(){return new Date().toISOString().split("T")[0]}
-function absISO(d){const x=new Date(d);return new Date(x.getTime()-x.getTimezoneOffset()*60000).toISOString().split("T")[0]}
+function absToday(){return absISO(new Date())}
+function absISO(d){const x=new Date(d);if(isNaN(x))return "";return new Date(x.getTime()-x.getTimezoneOffset()*60000).toISOString().split("T")[0]}
 function absAddDays(iso,n){const d=new Date(iso+"T12:00:00");d.setDate(d.getDate()+n);return absISO(d)}
 function absMonday(iso){const d=new Date(iso+"T12:00:00");const wd=(d.getDay()+6)%7;d.setDate(d.getDate()-wd);return absISO(d)}
 function absDays(a,b){return Math.round((new Date(b+"T12:00:00")-new Date(a+"T12:00:00"))/86400000)+1}
@@ -35,7 +35,11 @@ function absSettings(){
   if(!DATA.absSettings.alertJours)DATA.absSettings.alertJours=7;
   return DATA.absSettings;
 }
-function absList(){if(!DATA.absences)DATA.absences=[];return DATA.absences}
+function absList(){
+  if(!DATA.absences)DATA.absences=[];
+  // garde-fou : une absence sans date de début ne doit jamais faire planter l'affichage
+  return DATA.absences.filter(a=>a&&typeof a.dateDebut==="string"&&a.dateDebut.length>=10);
+}
 function absNorm(s){return String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z ]/g," ").split(/\s+/).filter(Boolean)}
 function absAgentName(a){if(a.agentId){const t=getAgent(a.agentId);if(t)return t.name}return a.agentName||"—"}
 function absAgentClub(a){if(a.agentId){const t=getAgent(a.agentId);if(t)return t.club}return a.club||"—"}
@@ -317,8 +321,8 @@ window.addAbsenceForm=function(){
 };
 window.saveAbsence=function(){
   const f=absReadForm();if(!f)return;
-  const a=Object.assign({id:nextId(absList()),source:"manuel",dateCreated:new Date().toISOString(),key:absKey(f.agentName,f.dateDebut,f.dateFin)},f);
-  absList().push(a);
+  const a=Object.assign({id:nextId(DATA.absences),source:"manuel",dateCreated:new Date().toISOString(),key:absKey(f.agentName,f.dateDebut,f.dateFin)},f);
+  DATA.absences.push(a);
   logChange("Congé ajouté : "+f.agentName+" du "+fmtDateShort(f.dateDebut)+" au "+fmtDateShort(f.dateFin));
   saveData();closeModal();render();showToast("✓ Congé enregistré");
 };
@@ -334,7 +338,7 @@ window.updateAbsence=function(id){
 window.deleteAbsence=function(id){
   const a=absList().find(x=>x.id===id);if(!a)return;
   if(!confirm("Supprimer l'absence de "+absAgentName(a)+" ?"))return;
-  DATA.absences=absList().filter(x=>x.id!==id);
+  DATA.absences=DATA.absences.filter(x=>x.id!==id);
   logChange("Congé supprimé : "+absAgentName(a));saveData();closeModal();render();
 };
 window.absSettingsForm=function(){
@@ -380,15 +384,24 @@ window.importAbsencesWorkday=function(){
 window.processAbsencesImport=async function(file){
   const ok=await loadXLSX();if(!ok)return;
   const data=await file.arrayBuffer();
-  const wb=XLSX.read(data,{type:"array",cellDates:true});
-  const ws=wb.Sheets[wb.SheetNames[0]];
-  const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:"",raw:false});
-  // Workday met souvent un titre et des lignes vides avant l'en-tête : on cherche la vraie ligne d'en-têtes
-  let hi=0,bestScore=-1;
-  aoa.slice(0,15).forEach((r,i)=>{const s=r.filter(c=>String(c).trim()).length+(r.some(c=>/nom|name|worker|employ|collab/i.test(c))?3:0)+(r.some(c=>/d[ée]but|start|from|date/i.test(c))?3:0);if(s>bestScore){bestScore=s;hi=i}});
-  const headers=aoa[hi].map(h=>String(h).trim());
-  const body=aoa.slice(hi+1).filter(r=>r.some(c=>String(c).trim()));
-  if(!body.length){showToast("⚠ Aucune ligne trouvée dans "+file.name);return}
+  let wb;
+  try{wb=XLSX.read(data,{type:"array",cellDates:true})}catch(e){showToast("⚠ Fichier illisible : "+file.name);return}
+  // Workday met souvent un titre et des lignes vides avant l'en-tête, et parfois le tableau sur une 2e feuille :
+  // on scanne toutes les feuilles et on garde celle qui contient le vrai tableau
+  const scoreRow=r=>r.filter(c=>String(c).trim()).length+(r.some(c=>/nom|name|worker|employ|collab|salari|agent/i.test(c))?3:0)+(r.some(c=>/d[ée]but|start|from|date/i.test(c))?3:0);
+  let best=null;
+  wb.SheetNames.forEach(name=>{
+    const aoa=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:"",raw:false});
+    let hi=0,hs=-1;
+    aoa.slice(0,25).forEach((r,i)=>{const sc=scoreRow(r);if(sc>hs){hs=sc;hi=i}});
+    const body=aoa.slice(hi+1).filter(r=>r.some(c=>String(c).trim()));
+    const total=hs*10+body.length;
+    if(hs>0&&body.length&&(!best||total>best.total))best={aoa,hi,body,total,name};
+  });
+  if(!best){showToast("⚠ Aucun tableau trouvé dans "+file.name+" ("+wb.SheetNames.length+" feuille"+(wb.SheetNames.length>1?"s":"")+" : "+wb.SheetNames.join(", ")+")");
+    addNotification("📥 Import impossible","Le fichier "+file.name+" ne contient aucune ligne de données. Vérifie dans Workday que la période affichée contient des absences avant d'exporter, ou utilise la Saisie rapide.","info");return}
+  const headers=best.aoa[best.hi].map(h=>String(h).trim());
+  const body=best.body;
   const find=re=>{const i=headers.findIndex(h=>re.test(h));return i>=0?i:-1};
   const map={
     nom:find(/^(nom|name|worker|employ|collaborateur|salari|agent|travailleur|employee)/i),
@@ -402,7 +415,7 @@ window.processAbsencesImport=async function(file){
   if(map.nom<0)map.nom=0;
   if(map.debut<0){map.debut=headers.findIndex((h,i)=>i!==map.nom&&body.some(r=>absParseDate(r[i])))}
   if(map.fin<0){map.fin=headers.findIndex((h,i)=>i!==map.nom&&i!==map.debut&&body.some(r=>absParseDate(r[i])))}
-  _absImportRows={headers,body,map,file:file.name};
+  _absImportRows={headers,body,map,file:file.name+(wb.SheetNames.length>1?" · feuille « "+best.name+" »":"")};
   absShowMappingForm();
 };
 window.absShowMappingForm=function(){
@@ -458,7 +471,7 @@ window.absCommitImport=function(titre){
       if(DATA.arrets.some(a=>a.agentId==r.agentId&&a.dateDebut===r.dateDebut))return;
       DATA.arrets.push({id:nextId(DATA.arrets),type:r.type,agentId:r.agentId,dateDebut:r.dateDebut,dateFin:r.dateFin,note:"Import "+titre,dateCreated:new Date().toISOString()});nArr++;
     } else {
-      absList().push({id:nextId(absList()),agentId:r.agentId,agentName:r.agentName,club:r.club,type:r.type,statut:r.statut,dateDebut:r.dateDebut,dateFin:r.dateFin,source:r.source||titre,note:r.note||"",dateCreated:new Date().toISOString(),key:r.key});n++;
+      DATA.absences.push({id:nextId(DATA.absences),agentId:r.agentId,agentName:r.agentName,club:r.club,type:r.type,statut:r.statut,dateDebut:r.dateDebut,dateFin:r.dateFin,source:r.source||titre,note:r.note||"",dateCreated:new Date().toISOString(),key:r.key});n++;
     }
   });
   _absImportRows=null;
@@ -523,3 +536,13 @@ window.exportAbsencesICS=function(){
   const blob=new Blob([ics],{type:"text/calendar;charset=utf-8"});const url=URL.createObjectURL(blob);const el=document.createElement("a");el.href=url;el.download=`Absences_BFFR03.36_${t}.ics`;el.click();URL.revokeObjectURL(url);
   showToast("✓ Fichier agenda généré — ouvre-le pour l'ajouter à ton calendrier");
 };
+
+// ─── Filet de sécurité : une erreur JS ne doit jamais laisser un écran blanc ───
+window.addEventListener("error",function(ev){
+  try{
+    const area=document.getElementById("contentArea");
+    if(area&&!area.innerHTML.trim()){
+      area.innerHTML=`<div class="panel" style="border-left:4px solid #DC2626;padding:20px"><div style="font-weight:700;font-size:15px;margin-bottom:6px">⚠ L'affichage a rencontré une erreur</div><div style="font-size:12px;color:#6B7280;margin-bottom:12px">Tes données sont intactes. Envoie ce message à Claude :</div><pre style="background:#FEF2F2;color:#991B1B;padding:10px;border-radius:8px;font-size:11px;white-space:pre-wrap">${String(ev.message)+(ev.filename?"\n"+ev.filename.split("/").pop()+":"+ev.lineno:"")}</pre><button class="btn-secondary" style="margin-top:12px" onclick="location.reload(true)">Recharger l'application</button></div>`;
+    }
+  }catch(e){}
+});

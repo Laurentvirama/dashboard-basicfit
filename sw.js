@@ -1,4 +1,4 @@
-const CACHE_NAME="bf-dashboard-v3";
+const CACHE_NAME="bf-dashboard-v4";
 const CORE_ASSETS=["./index.html","./manifest.json","./style.css","./absences.js","./app.js","./icon-192.png","./icon-512.png"];
 
 self.addEventListener("install",e=>{

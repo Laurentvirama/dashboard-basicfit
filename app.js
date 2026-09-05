@@ -392,7 +392,7 @@ function renderTabs(){
   c.innerHTML=TABS.map(t=>{
     let badge='';
     if(t.id==="arrets"&&activesCount>0)badge=`<span class="tab-badge">${activesCount}</span>`;
-    const absNow=absAujourdhui().length;
+    let absNow=0;try{absNow=absAujourdhui().length}catch(e){}
     if(t.id==="absences"&&absNow>0)badge=`<span class="tab-badge" style="background:#F59E0B">${absNow}</span>`;
     if(t.id==="reminders"&&pendingReminders>0)badge=`<span class="tab-badge" style="${urgentReminders>0?'background:#DC2626':''}">${pendingReminders}</span>`;
     const overdueFollowups=getOverdueFollowups().length;
@@ -435,7 +435,7 @@ function getAgentStatus(agentId){
   // Détermine le statut d'un agent en tenant compte des arrêts actifs
   const arret=agentsEnArret().find(a=>a.agentId==agentId);
   if(arret)return arret.type; // "maladie" ou "AT"
-  if(absActiveForAgent(agentId))return "congé";
+  try{if(absActiveForAgent(agentId))return "congé"}catch(e){}
   const t=getAgent(agentId);
   return t?t.status:"présent";
 }
@@ -589,7 +589,7 @@ function renderModule(id, fTeam, fTk) {
       ${topSallesTickets.map(([s,v])=>`<div class="chart-bar-row"><div class="chart-bar-label">${s}</div><div class="chart-bar-track"><div class="chart-bar-fill" style="width:${pct(v.total,maxSalleTk)}%;background:#8B5CF6">${v.total}</div></div></div>`).join("")}
     </div></div>`;
   }
-  if(id==="absences")return renderAbsencesModule(dragAttrs);
+  if(id==="absences"){try{return renderAbsencesModule(dragAttrs)}catch(e){console.error("absences module:",e);return ""}}
   if(id==="arrets"){
     if(arretsActifs.length===0)return `<div class="panel draggable" ${dragAttrs}><div class="panel-drag-handle">⋮⋮</div><div class="panel-header"><span class="panel-title">🏥 Agents en arrêt</span></div><div class="empty-state" style="padding:20px"><div style="font-size:13px;color:#16A34A">✓ Aucun arrêt en cours</div></div></div>`;
     return `<div class="panel draggable" ${dragAttrs}><div class="panel-drag-handle">⋮⋮</div><div class="panel-header"><span class="panel-title">🏥 Agents en arrêt (Maladie / AT)</span><span class="badge" style="background:#FEE2E2;color:#991B1B">${arretsActifs.length} en cours</span></div>
@@ -674,7 +674,7 @@ function renderContent(){
       html+=section("🏥","Agents en arrêt",arretsActifs.length,"#8B5CF6",arretsActifs.map(a=>`<div class="panel-row"><div class="row-left"><div><div class="row-name">${getAgentName(a.agentId)} ${a.type==="maladie"?'🏥':'⚠'}</div><div class="row-sub">${getAgentClub(a.agentId)}${a.dateFin?' · jusqu\'au '+fmtDateShort(a.dateFin):''}</div></div></div></div>`).join(""));
     }
 
-    html+=renderAbsencesToday(section);
+    try{html+=renderAbsencesToday(section)}catch(e){console.error("absences today:",e)}
 
     if(visitsToday.length>0||calToday.length>0){
       const items=[...visitsToday.map(v=>`<div class="panel-row"><div class="row-left"><div class="dot" style="background:#FE7F00"></div><div><div class="row-name">Visite · ${v.club}</div><div class="row-sub">${v.type}${v.heureArrivee?' · '+v.heureArrivee:''}</div></div></div></div>`),...calToday.map(e=>`<div class="panel-row"><div class="row-left"><div class="dot" style="background:#3B82F6"></div><div><div class="row-name">${e.title||e.type||'Événement'}</div><div class="row-sub">${e.club||''}</div></div></div></div>`)].join("");
@@ -792,7 +792,7 @@ function renderContent(){
   }
 
   else if(activeTab==="absences"){
-    area.innerHTML=renderAbsencesTab();
+    try{area.innerHTML=renderAbsencesTab()}catch(e){throw e}
   }
 
   else if(activeTab==="visits"){
@@ -3481,7 +3481,15 @@ function mapStatus(s){if(!s)return"ouvert";s=s.toLowerCase();if(s.includes("cour
 function mapSeverity(s){if(!s)return"moyenne";s=s.toLowerCase();if(s.includes("critiq"))return"critique";if(s.includes("haut"))return"haute";if(s.includes("bas"))return"basse";return"moyenne"}
 
 // ═══ RENDER + BOOT ═══
-function render(){renderTabs();renderFilters();renderContent()}
+function render(){
+  try{renderTabs()}catch(e){console.error("renderTabs:",e)}
+  try{renderFilters()}catch(e){console.error("renderFilters:",e)}
+  try{renderContent()}catch(e){
+    console.error("renderContent:",e);
+    const area=document.getElementById("contentArea");
+    if(area)area.innerHTML=`<div class="panel" style="border-left:4px solid #DC2626;padding:20px"><div style="font-weight:700;font-size:15px;margin-bottom:6px">⚠ Cet onglet n'a pas pu s'afficher</div><div style="font-size:12px;color:#6B7280;margin-bottom:12px">Les données sont intactes. Envoie ce message à Claude pour correction :</div><pre style="background:#FEF2F2;color:#991B1B;padding:10px;border-radius:8px;font-size:11px;white-space:pre-wrap">${(e&&e.stack||String(e)).replace(/</g,"&lt;")}</pre><div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><button class="btn-secondary" onclick="activeTab='today';render()">Aujourd'hui</button><button class="btn-secondary" onclick="activeTab='dashboard';render()">Tableau de bord</button><button class="btn-secondary" onclick="location.reload(true)">Recharger l'application</button></div></div>`;
+  }
+}
 
 // Boot: load sync first, then try async persistent storage
 render();
