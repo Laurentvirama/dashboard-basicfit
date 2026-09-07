@@ -1,5 +1,5 @@
-const CACHE_NAME="bf-dashboard-v8";
-const CORE_ASSETS=["./index.html","./manifest.json","./style.css","./absences.js","./app.js","./icon-192.png","./icon-512.png"];
+const CACHE_NAME="bf-dashboard-v10";
+const CORE_ASSETS=["./index.html","./manifest.json","./style.css","./absences.js","./prestataires.js","./app.js","./icon-192.png","./icon-512.png"];
 
 self.addEventListener("install",e=>{
   e.waitUntil(caches.open(CACHE_NAME).then(c=>c.addAll(CORE_ASSETS)));

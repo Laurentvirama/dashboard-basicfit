@@ -92,7 +92,7 @@ function saveData(){
   _saveTimer=setTimeout(async()=>{
     try{
       const p=JSON.stringify(DATA);_lastPayload=p;
-      await FS_DOC_REF.set({payload:p,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+      await FS_DOC_REF.set({payload:p,updatedAt:firebase.firestore.FieldValue.serverTimestamp()}).catch(e=>{if(String(e.code).includes("permission-denied"))showToast("🔒 Accès refusé par Firebase : ce compte n'est pas autorisé (voir règles Firestore)");throw e});
       updateSaveIndicator("saved");
     }catch(e){console.log("Firestore save error:",e);updateSaveIndicator("error")}
   },500);
@@ -1350,6 +1350,7 @@ function renderContent(){
     });
     area.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px"><div class="section-title">📞 Contacts & Prestataires <span>Region BFFR03.36</span></div><button class="btn-add" onclick="addContactForm()">+ Contact</button></div>'+
     '<div class="panel"><div class="panel-header"><span class="panel-title">👔 Hierarchie & Contacts internes</span></div>'+intHtml+'</div>'+
+    renderPrestataires()+
     '<div class="panel"><div class="panel-header"><span class="panel-title">🧹 Prestataires Cleaning</span></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;padding:16px">'+cleanHtml+'</div></div>'+
     '<div class="panel"><div class="panel-header"><span class="panel-title">🚨 Points attention secteur</span></div>'+
     DATA.clubs.filter(function(c){return c.priorite}).map(function(c){return '<div style="padding:12px 16px;border-bottom:1px solid #F0F0F3;border-left:3px solid '+(c.status==="alert"?"#DC2626":"#F59E0B")+'"><strong>'+c.code+' '+c.name+(c.isHome?' 🏠':'')+'</strong><div style="font-size:13px;color:#374151;margin-top:4px">'+c.priorite+'</div></div>'}).join("")+
@@ -3516,7 +3517,58 @@ function render(){
   }
 }
 
-// Boot : si des données locales existent on affiche tout de suite, sinon on attend Firestore (évite l'écran vide à la 1re connexion)
+// ═══ AUTHENTIFICATION (Firebase Auth) ═══
+// Le dashboard ne démarre qu'une fois l'utilisateur connecté. Les règles Firestore (voir GUIDE_SECURITE.md)
+// n'autorisent la lecture/écriture qu'aux emails listés : sans compte autorisé, aucune donnée ne sort de Firebase.
+let _appStarted=false;
+function showLoginError(msg){const el=document.getElementById("loginError");if(el)el.textContent=msg||""}
+function authErrorText(e){
+  const c=(e&&e.code)||"";
+  if(c.includes("popup-blocked")||c.includes("popup-closed"))return "Fenêtre Google fermée ou bloquée — réessaie, ou utilise email + mot de passe.";
+  if(c.includes("wrong-password")||c.includes("invalid-credential")||c.includes("user-not-found"))return "Email ou mot de passe incorrect.";
+  if(c.includes("too-many-requests"))return "Trop de tentatives, patiente quelques minutes.";
+  if(c.includes("network"))return "Pas de connexion réseau.";
+  if(c.includes("unauthorized-domain"))return "Domaine non autorisé dans Firebase (Authentication → Settings → Authorized domains).";
+  if(c.includes("operation-not-allowed"))return "Ce mode de connexion n'est pas activé dans Firebase (Authentication → Sign-in method).";
+  return "Connexion impossible ("+(c||e)+")";
+}
+window.loginWithGoogle=async function(){
+  showLoginError("");
+  try{
+    const provider=new firebase.auth.GoogleAuthProvider();
+    const standalone=window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone===true;
+    if(standalone)await firebase.auth().signInWithRedirect(provider); // app installée sur iPhone : pas de popup possible
+    else await firebase.auth().signInWithPopup(provider);
+  }catch(e){showLoginError(authErrorText(e))}
+};
+window.loginWithEmail=async function(){
+  showLoginError("");
+  const email=(document.getElementById("loginEmail").value||"").trim(),pwd=document.getElementById("loginPwd").value||"";
+  if(!email||!pwd){showLoginError("Renseigne l'email et le mot de passe.");return}
+  try{await firebase.auth().signInWithEmailAndPassword(email,pwd)}catch(e){showLoginError(authErrorText(e))}
+};
+window.logoutDashboard=async function(){
+  if(!confirm("Se déconnecter du dashboard sur cet appareil ?"))return;
+  try{await firebase.auth().signOut()}catch(e){}
+  try{localStorage.removeItem(STORAGE_KEY)}catch(e){} // aucune donnée ne reste sur un appareil déconnecté
+  location.reload();
+};
+function showApp(user){
+  const ls=document.getElementById("loginScreen");if(ls)ls.style.display="none";
+  const lb=document.getElementById("logoutBtn");if(lb)lb.title="Connecté : "+(user.email||user.displayName||"")+" — cliquer pour se déconnecter";
+}
+function showLogin(){
+  const ls=document.getElementById("loginScreen");if(ls)ls.style.display="flex";
+}
+try{firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL)}catch(e){}
+firebase.auth().getRedirectResult().catch(e=>showLoginError(authErrorText(e)));
+firebase.auth().onAuthStateChanged(function(user){
+  if(!user){showLogin();return}
+  showApp(user);
+  if(!_appStarted){_appStarted=true;startApp()}
+});
+
+function startApp(){
 const _hasLocal=!!loadDataSync();
 if(_hasLocal){render()}
 else{
@@ -3551,3 +3603,5 @@ else{
     navigator.serviceWorker.register("sw.js").catch(function(e){console.log("SW non enregistré:",e)});
   }
 })();
+
+}
