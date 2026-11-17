@@ -1,4 +1,4 @@
-const CLUB_COLORS=["#0D9488","#3B82F6","#8B5CF6","#EA580C","#16A34A"];
+const CLUB_COLORS=["#0D9488","#3B82F6","#8B5CF6","#EA580C","#16A34A","#DB2777"];
 const AGENT_COLORS=[
   {id:"blue",hex:"#3B82F6",label:"Bleu"},{id:"green",hex:"#16A34A",label:"Vert"},{id:"orange",hex:"#F59E0B",label:"Orange"},
   {id:"red",hex:"#DC2626",label:"Rouge"},{id:"purple",hex:"#8B5CF6",label:"Violet"},{id:"pink",hex:"#EC4899",label:"Rose"},
@@ -35,6 +35,7 @@ const DEFAULT_DATA={
     {id:3,code:"BF-7215",name:"Serris Danube",fullName:"16 Cr du Danube, 77700 Serris",agents:0,status:"ok",cleaning:{societe:"ISOR",contact:"P. Aman",tel:"0750563689"},priorite:"",placeId:"ChIJ3wmTf6gd5kcRcwGImG6-0RQ",googleRating:4.4,googleCount:154,horaires:"6h-22h30",phone:"+33 3 66 33 33 44",lat:48.8559,lng:2.7769,peakAM:"7h30-9h30",peakPM:"17h-19h30"},
     {id:4,code:"BF-4486",name:"Nanteuil-lès-Meaux",fullName:"15 Av. de la Foulée, 77100 Nanteuil-lès-Meaux",agents:0,status:"alert",cleaning:{societe:"ISOR",contact:"P. Aman",tel:"0750563689"},priorite:"POINT ATTENTION MAJEUR — Perte de membres vs N-1. Identifier causes + plan action.",placeId:"ChIJqQhW6cWh6EcRaV6j8u87d-U",googleRating:4.1,googleCount:171,horaires:"6h-22h30",phone:"+33 1 59 20 24 20",lat:48.9375,lng:2.8810,peakAM:"6h30-8h30",peakPM:"17h30-20h"},
     {id:5,code:"BF-7052",name:"Chauconin-Neufmontiers",fullName:"3 Av. Roland Moreno, 77124 Chauconin-Neufmontiers",agents:0,status:"alert",cleaning:{societe:"ARESS / Pronet",contact:"Myriam",tel:"0659621121"},priorite:"Equipe a former.",placeId:"ChIJC1W4quqh6EcRJVAj7HcFBRI",googleRating:4.6,googleCount:298,horaires:"6h-22h30",phone:"+33 1 59 20 24 20",lat:48.9580,lng:2.8603,peakAM:"7h-9h",peakPM:"17h-19h30"},
+    {id:6,code:"BF-4611",name:"Noisiel",fullName:"6 Rue de la Mare Blanche, 77186 Noisiel",agents:0,status:"ok",cleaning:{societe:"",contact:"",tel:""},priorite:"",placeId:"",googleRating:0,googleCount:0,horaires:"24/24 7j/7",phone:"+33 3 66 33 33 44",lat:48.8400,lng:2.6180,geoApprox:true,peakAM:"7h-9h30",peakPM:"17h30-20h30"},
   ],
   salles:[...DEFAULT_SALLES],
   modules:JSON.parse(JSON.stringify(DEFAULT_MODULES)),
@@ -57,7 +58,7 @@ const DEFAULT_DATA={
     {id:11,club:"Chauconin-Neufmontiers",note:5,auteur:"Membre",texte:"Super club",date:"2026-06-08",source:"Google"},
     {id:12,club:"Chauconin-Neufmontiers",note:4,auteur:"Membre",texte:"Nice gym but shame there is no check on shoe cleanliness - dirt on machines sometimes",date:"2026-06-08",source:"Google"},
   ],
-  avisLastFetch:{"Meaux Victoire":"2026-06-08","Lagny-sur-Marne":"2026-06-08","Serris Danube":"2026-06-08","Nanteuil-lès-Meaux":"2026-06-08","Chauconin-Neufmontiers":"2026-06-08"},
+  avisLastFetch:{"Meaux Victoire":"2026-06-08","Lagny-sur-Marne":"2026-06-08","Serris Danube":"2026-06-08","Nanteuil-lès-Meaux":"2026-06-08","Chauconin-Neufmontiers":"2026-06-08","Noisiel":""},
 };
 
 // ═══ PERSISTENT STORAGE — Firebase Firestore (sync temps réel entre appareils) ═══
@@ -261,6 +262,8 @@ function hydrateData(){
   if(!DATA.lastGoogleAutoRefresh)DATA.lastGoogleAutoRefresh="";
   if(!DATA.ticketExports)DATA.ticketExports=[];
   if(!DATA.salles)DATA.salles=[...DEFAULT_SALLES];
+  // Nouveau club : Noisiel (BF-4611) ajouté au cluster — ajout automatique dans les données déjà synchronisées
+  if(DATA.clubs&&!DATA.clubs.some(c=>c.code==="BF-4611")){const nc=JSON.parse(JSON.stringify(DEFAULT_DATA.clubs.find(c=>c.code==="BF-4611")));nc.id=Math.max(0,...DATA.clubs.map(c=>Number(c.id)||0))+1;DATA.clubs.push(nc)}
   // Anti-obésité : on garde l'essentiel des historiques pour que la synchro reste rapide (document Firestore limité à 1 Mo)
   if(DATA.agentPlanning.length>300)DATA.agentPlanning=DATA.agentPlanning.slice(-300);
   if(DATA.importedFiles.length>5)DATA.importedFiles=DATA.importedFiles.slice(-5);
@@ -1135,7 +1138,7 @@ function renderContent(){
     const equipIssues=sorted.filter(a=>a.tags&&a.tags.some(t=>t.label==="Machine HS"||t.label==="Équipement"));
 
     // Build Google rating cards per club with distinct colors
-    var clubColors=["#0D9488","#3B82F6","#8B5CF6","#EA580C","#16A34A"];
+    var clubColors=["#0D9488","#3B82F6","#8B5CF6","#EA580C","#16A34A","#DB2777"];
     var clubCardHtml="";
     DATA.clubs.forEach(function(c,i){
       var color=clubColors[i%clubColors.length];
@@ -1157,7 +1160,7 @@ function renderContent(){
       clubCardHtml+='</div>';
       clubCardHtml+='<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding-left:8px">';
       clubCardHtml+='<button class="btn-add" style="font-size:11px;padding:5px 12px;background:'+color+'" onclick="refreshGoogleReviews(\''+c.name.replace(/'/g,"\\'")+'\')">🔄 Rafraîchir</button>';
-      clubCardHtml+='<button class="btn-secondary" style="font-size:11px;padding:5px 10px" onclick="window.open(\'https://www.google.com/maps/place/?q=place_id:'+c.placeId+'\',\'_blank\')">📍 Maps</button>';
+      clubCardHtml+='<button class="btn-secondary" style="font-size:11px;padding:5px 10px" onclick="window.open(\''+(c.placeId?'https://www.google.com/maps/place/?q=place_id:'+c.placeId:'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent('Basic-Fit '+c.fullName))+'\',\'_blank\')">📍 Maps</button>';
       clubCardHtml+='<span style="font-size:10px;color:'+(stale?"#DC2626":"#16A34A")+'">'+(stale?"⚠ Pas vérifié aujourd\'hui":"✅ "+fmtDateShort(lastFetch))+'</span>';
       clubCardHtml+='</div></div>';
     });
@@ -1187,7 +1190,7 @@ function renderContent(){
       ${selectedClub==="all"?`<div class="panel">
         <div class="panel-header"><span class="panel-title">📊 Tableau comparatif</span></div>
         <div style="overflow-x:auto"><table class="data-table"><thead><tr><th></th><th>Club</th><th>Note Google</th><th>Nb avis</th><th>Saisis</th><th>Équipement</th><th>MAJ</th><th>État</th></tr></thead><tbody>
-        ${DATA.clubs.map((c,i)=>{const st=getClubAvisStats(c.name);const needs=needsAvisRefresh(c.name);const cc=["#0D9488","#3B82F6","#8B5CF6","#EA580C","#16A34A"][i%5];return `<tr>
+        ${DATA.clubs.map((c,i)=>{const st=getClubAvisStats(c.name);const needs=needsAvisRefresh(c.name);const cc=["#0D9488","#3B82F6","#8B5CF6","#EA580C","#16A34A","#DB2777"][i%5];return `<tr>
           <td><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${cc}"></span></td>
           <td><strong>${c.name}</strong>${c.isHome?" 🏠":""}</td>
           <td style="font-weight:800;font-size:16px;color:${(c.googleRating||0)>=4.5?'#16A34A':(c.googleRating||0)>=4?'#0D9488':'#F59E0B'}">${c.googleRating||'—'} ⭐</td>
@@ -1234,18 +1237,19 @@ function renderContent(){
 
     // Distances matrix (pre-calculated in minutes)
     var DIST_MATRIX={
-      "Meaux Victoire":{"Chauconin-Neufmontiers":5,"Nanteuil-lès-Meaux":8,"Serris Danube":25,"Lagny-sur-Marne":20},
-      "Chauconin-Neufmontiers":{"Meaux Victoire":5,"Nanteuil-lès-Meaux":6,"Serris Danube":22,"Lagny-sur-Marne":25},
-      "Nanteuil-lès-Meaux":{"Meaux Victoire":8,"Chauconin-Neufmontiers":6,"Serris Danube":20,"Lagny-sur-Marne":25},
-      "Serris Danube":{"Meaux Victoire":25,"Chauconin-Neufmontiers":22,"Nanteuil-lès-Meaux":20,"Lagny-sur-Marne":15},
-      "Lagny-sur-Marne":{"Meaux Victoire":20,"Chauconin-Neufmontiers":25,"Nanteuil-lès-Meaux":25,"Serris Danube":15}
+      "Meaux Victoire":{"Chauconin-Neufmontiers":5,"Nanteuil-lès-Meaux":8,"Serris Danube":25,"Lagny-sur-Marne":20,"Noisiel":30},
+      "Chauconin-Neufmontiers":{"Meaux Victoire":5,"Nanteuil-lès-Meaux":6,"Serris Danube":22,"Lagny-sur-Marne":25,"Noisiel":30},
+      "Nanteuil-lès-Meaux":{"Meaux Victoire":8,"Chauconin-Neufmontiers":6,"Serris Danube":20,"Lagny-sur-Marne":25,"Noisiel":30},
+      "Serris Danube":{"Meaux Victoire":25,"Chauconin-Neufmontiers":22,"Nanteuil-lès-Meaux":20,"Lagny-sur-Marne":15,"Noisiel":15},
+      "Lagny-sur-Marne":{"Meaux Victoire":20,"Chauconin-Neufmontiers":25,"Nanteuil-lès-Meaux":25,"Serris Danube":15,"Noisiel":12},
+      "Noisiel":{"Meaux Victoire":30,"Chauconin-Neufmontiers":30,"Nanteuil-lès-Meaux":30,"Serris Danube":15,"Lagny-sur-Marne":12}
     };
 
-    // Optimal route (pre-calculated): Meaux→Chauconin→Nanteuil→Serris→Lagny = ~46min total
-    var OPTIMAL_ROUTE=["Meaux Victoire","Chauconin-Neufmontiers","Nanteuil-lès-Meaux","Serris Danube","Lagny-sur-Marne"];
-    var totalRouteMin=5+6+20+15; // 46 min
+    // Optimal route (pre-calculated): Meaux→Chauconin→Nanteuil→Serris→Lagny→Noisiel = ~58min total
+    var OPTIMAL_ROUTE=CLUSTER_ROUTE.filter(function(n){return DATA.clubs.some(function(c){return c.name===n})});
+    var totalRouteMin=0;for(var ri=1;ri<OPTIMAL_ROUTE.length;ri++){var dm=DIST_MATRIX[OPTIMAL_ROUTE[ri-1]];totalRouteMin+=(dm&&dm[OPTIMAL_ROUTE[ri]])||0}
 
-    var clubColors=["#0D9488","#3B82F6","#8B5CF6","#EA580C","#16A34A"];
+    var clubColors=["#0D9488","#3B82F6","#8B5CF6","#EA580C","#16A34A","#DB2777"];
 
     // Build visit cards
     var visitCardsHtml="";
@@ -1288,20 +1292,20 @@ function renderContent(){
     });
 
     area.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">'+
-      '<div class="section-title">🗺 Carte & Trajets <span>5 clubs · Seine-et-Marne</span></div>'+
+      '<div class="section-title">🗺 Carte & Trajets <span>'+DATA.clubs.length+' clubs · Seine-et-Marne</span></div>'+
       '<div style="display:flex;gap:6px"><button class="btn-add" onclick="openWazeRoute()">🚗 Route complète Waze</button><button class="btn-secondary" onclick="openGoogleMapsRoute()">📍 Route Google Maps</button></div>'+
     '</div>'+
     '<div class="stats-grid">'+
       '<div class="stat-card"><div class="stat-label">Visites cette semaine</div><div class="stat-value" style="color:#0D9488">'+Object.values(weekVisits).reduce(function(a,b){return a+b},0)+'</div></div>'+
       '<div class="stat-card"><div class="stat-label">Route optimale</div><div class="stat-value">'+totalRouteMin+' min</div></div>'+
-      '<div class="stat-card"><div class="stat-label">Clubs visités / sem</div><div class="stat-value">'+Object.values(weekVisits).filter(function(v){return v>0}).length+' / 5</div></div>'+
-      '<div class="stat-card"><div class="stat-label">Distance totale</div><div class="stat-value">~55 km</div></div>'+
+      '<div class="stat-card"><div class="stat-label">Clubs visités / sem</div><div class="stat-value">'+Object.values(weekVisits).filter(function(v){return v>0}).length+' / '+DATA.clubs.length+'</div></div>'+
+      '<div class="stat-card"><div class="stat-label">Distance totale</div><div class="stat-value">~70 km</div></div>'+
     '</div>'+
     '<div id="clusterMap" style="height:380px;border-radius:12px;border:2px solid #E5E7EB;margin-bottom:16px"></div>'+
     '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin-bottom:16px">'+visitCardsHtml+'</div>'+
     '<div class="panel"><div class="panel-header"><span class="panel-title">🛣 Route optimisée — '+totalRouteMin+' min de trajet</span><button class="btn-add" onclick="openWazeRoute()">🚗 Lancer sur Waze</button></div>'+
       '<div style="padding:16px">'+routeHtml+
-      '<div style="text-align:center;margin-top:12px;padding:10px;background:#F0FDFA;border-radius:8px;color:#0F766E;font-size:13px;font-weight:600">✅ Total trajet: '+totalRouteMin+' min · Optimal: Meaux → Chauconin → Nanteuil → Serris → Lagny</div>'+
+      '<div style="text-align:center;margin-top:12px;padding:10px;background:#F0FDFA;border-radius:8px;color:#0F766E;font-size:13px;font-weight:600">✅ Total trajet: '+totalRouteMin+' min · Optimal: '+CLUSTER_ROUTE_LABEL+'</div>'+
     '</div></div>'+
     '<div class="panel"><div class="panel-header"><span class="panel-title">⏰ Heures de pointe recommandées</span></div>'+
       '<div style="overflow-x:auto"><table class="data-table"><thead><tr><th></th><th>Club</th><th>Peak matin</th><th>Peak soir</th><th>Visite idéale</th><th>Horaires</th></tr></thead><tbody>'+
@@ -1333,7 +1337,7 @@ function renderContent(){
     // ═══ CONTACTS & PRESTATAIRES ═══
   else if(activeTab==="contacts"){
     if(!DATA.contactsInternes)DATA.contactsInternes=[];
-    var CC=["#0D9488","#3B82F6","#8B5CF6","#EA580C","#16A34A"];
+    var CC=["#0D9488","#3B82F6","#8B5CF6","#EA580C","#16A34A","#DB2777"];
     var intHtml="";
     (DATA.contactsInternes||[]).forEach(function(c){
       intHtml+='<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #F0F0F3"><div><strong>'+c.nom+'</strong><div style="font-size:12px;color:#6B7280">'+c.role+'</div></div><div style="display:flex;gap:4px">';
@@ -1364,7 +1368,7 @@ function renderContent(){
     if(!DATA.checklistLogs)DATA.checklistLogs=[];
     var todayStr=new Date().toISOString().split("T")[0];
     var CK=[{id:"ext",label:"Etat exterieur",icon:"🏢"},{id:"portiques",label:"Portiques & kiosks",icon:"🚪"},{id:"vestiaires",label:"Vestiaires & sanitaires",icon:"🚿"},{id:"locaux",label:"Locaux techniques",icon:"🔧"},{id:"issues",label:"Issues de secours",icon:"🚨"},{id:"extincteurs",label:"Extincteurs",icon:"🧯"},{id:"registres",label:"Registres obligatoires",icon:"📋"},{id:"tickets",label:"Tickets Xurrent",icon:"🎫"},{id:"machines",label:"Machines & selleries",icon:"🏋️"},{id:"avis",label:"Avis Google & retours",icon:"⭐"},{id:"equipe",label:"Echange equipe",icon:"👥"},{id:"stocks",label:"Stocks",icon:"📦"},{id:"formations",label:"Formations",icon:"📚"},{id:"entretien",label:"Entretien general",icon:"✨"}];
-    var CC=["#0D9488","#3B82F6","#8B5CF6","#EA580C","#16A34A"];
+    var CC=["#0D9488","#3B82F6","#8B5CF6","#EA580C","#16A34A","#DB2777"];
     var ckHtml="";
     DATA.clubs.forEach(function(c,idx){
       var col=CC[idx];
@@ -1387,7 +1391,7 @@ function renderContent(){
     var wkLogs=(DATA.checklistLogs||[]).filter(function(l){return l.date>=weekStart.toISOString().split("T")[0]});
     var visited=[];wkLogs.forEach(function(l){if(visited.indexOf(l.club)<0)visited.push(l.club)});
     area.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><div class="section-title">✅ Check-list Visite Club <span>Standards region Flo Gallo</span></div></div>'+
-    '<div class="stats-grid"><div class="stat-card"><div class="stat-label">Clubs visites / sem</div><div class="stat-value" style="color:#0D9488">'+visited.length+' / 5</div></div><div class="stat-card"><div class="stat-label">Objectif</div><div class="stat-value">3j / sem</div></div><div class="stat-card"><div class="stat-label">Check-lists / sem</div><div class="stat-value">'+wkLogs.length+'</div></div><div class="stat-card"><div class="stat-label">Audit mensuel</div><div class="stat-value" style="color:#8B5CF6">1x / club</div></div></div>'+
+    '<div class="stats-grid"><div class="stat-card"><div class="stat-label">Clubs visites / sem</div><div class="stat-value" style="color:#0D9488">'+visited.length+' / '+DATA.clubs.length+'</div></div><div class="stat-card"><div class="stat-label">Objectif</div><div class="stat-value">3j / sem</div></div><div class="stat-card"><div class="stat-label">Check-lists / sem</div><div class="stat-value">'+wkLogs.length+'</div></div><div class="stat-card"><div class="stat-label">Audit mensuel</div><div class="stat-value" style="color:#8B5CF6">1x / club</div></div></div>'+
     ckHtml;
   }
 
@@ -3017,7 +3021,7 @@ window.updateContactById=function(){
 };
 
 // ═══ CARTE & TRAJETS FUNCTIONS ═══
-var CLUB_COLORS_MAP=["#0D9488","#3B82F6","#8B5CF6","#EA580C","#16A34A"];
+var CLUB_COLORS_MAP=["#0D9488","#3B82F6","#8B5CF6","#EA580C","#16A34A","#DB2777"];
 
 window.logClubVisit=function(clubIdx){
   var c=DATA.clubs[clubIdx];if(!c)return;
@@ -3027,28 +3031,35 @@ window.logClubVisit=function(clubIdx){
   saveData();render();showToast("📍 Visite enregistrée — "+c.name);
 };
 
+var CLUSTER_ROUTE=["Meaux Victoire","Chauconin-Neufmontiers","Nanteuil-lès-Meaux","Serris Danube","Lagny-sur-Marne","Noisiel"];
+var CLUSTER_ROUTE_LABEL="Meaux → Chauconin → Nanteuil → Serris → Lagny → Noisiel";
+// Destination de navigation : coordonnées GPS, ou adresse exacte si la position GPS n'est qu'approximative
+function clubWazeUrl(c){
+  if(c.geoApprox&&c.fullName)return "https://waze.com/ul?q="+encodeURIComponent(c.fullName)+"&navigate=yes";
+  return "https://waze.com/ul?ll="+c.lat+","+c.lng+"&navigate=yes&z=15";
+}
+function clubMapsDest(c){return c.geoApprox&&c.fullName?encodeURIComponent(c.fullName):c.lat+","+c.lng}
+
 window.openWaze=function(clubIdx){
-  var c=DATA.clubs[clubIdx];if(!c||!c.lat)return;
-  window.open("https://waze.com/ul?ll="+c.lat+","+c.lng+"&navigate=yes&z=15","_blank");
+  var c=DATA.clubs[clubIdx];if(!c||(!c.lat&&!c.fullName))return;
+  window.open(clubWazeUrl(c),"_blank");
 };
 
 window.openGoogleMaps=function(clubIdx){
-  var c=DATA.clubs[clubIdx];if(!c||!c.lat)return;
-  window.open("https://www.google.com/maps/dir/?api=1&destination="+c.lat+","+c.lng+"&travelmode=driving","_blank");
+  var c=DATA.clubs[clubIdx];if(!c||(!c.lat&&!c.fullName))return;
+  window.open("https://www.google.com/maps/dir/?api=1&destination="+clubMapsDest(c)+"&travelmode=driving","_blank");
 };
 
 window.openWazeRoute=function(){
   // Open Waze with first stop (Meaux), user can chain stops
-  var route=["Meaux Victoire","Chauconin-Neufmontiers","Nanteuil-lès-Meaux","Serris Danube","Lagny-sur-Marne"];
-  var first=DATA.clubs.find(function(c){return c.name===route[0]});
-  if(first&&first.lat)window.open("https://waze.com/ul?ll="+first.lat+","+first.lng+"&navigate=yes","_blank");
-  showToast("🚗 Waze ouvert — Route: Meaux → Chauconin → Nanteuil → Serris → Lagny");
+  var first=DATA.clubs.find(function(c){return c.name===CLUSTER_ROUTE[0]});
+  if(first&&first.lat)window.open(clubWazeUrl(first),"_blank");
+  showToast("🚗 Waze ouvert — Route: "+CLUSTER_ROUTE_LABEL);
 };
 
 window.openGoogleMapsRoute=function(){
   // Build Google Maps URL with all stops
-  var route=["Meaux Victoire","Chauconin-Neufmontiers","Nanteuil-lès-Meaux","Serris Danube","Lagny-sur-Marne"];
-  var coords=route.map(function(name){var c=DATA.clubs.find(function(x){return x.name===name});return c?c.lat+","+c.lng:null}).filter(Boolean);
+  var coords=CLUSTER_ROUTE.map(function(name){var c=DATA.clubs.find(function(x){return x.name===name});return c?clubMapsDest(c):null}).filter(Boolean);
   if(coords.length<2)return;
   var url="https://www.google.com/maps/dir/"+coords.join("/")+"/";
   window.open(url,"_blank");
@@ -3264,7 +3275,8 @@ window.deleteWorkdayNote=function(id){
 // ═══ GOOGLE REVIEWS AUTO-REFRESH ═══
 window.refreshGoogleReviews=function(clubName){
   var c=DATA.clubs.find(function(x){return x.name===clubName});
-  if(!c||!c.placeId)return;
+  if(!c)return;
+  if(!c.placeId){window.open("https://www.google.com/maps/search/?api=1&query="+encodeURIComponent("Basic-Fit "+c.fullName),"_blank");return}
   window.open("https://www.google.com/maps/place/?q=place_id:"+c.placeId,"_blank");
   DATA.avisLastFetch[clubName]=new Date().toISOString().split("T")[0];
   saveData();render();
